@@ -94,11 +94,11 @@ export default function Dashboard() {
         setMsg('')
         if (!joinCode.trim()) return
 
-        // 1. Find group by code
+        // 1. Find group by code (using ilike for case-insensitive search if DB has mixed cases)
         const { data: targetGroup, error: findError } = await supabase
             .from('Grupo')
             .select('id_grupo, nombre')
-            .eq('codigo_invitacion', joinCode.trim().toUpperCase())
+            .ilike('codigo_invitacion', joinCode.trim())
             .single()
 
         if (findError || !targetGroup) {
@@ -235,7 +235,7 @@ export default function Dashboard() {
                         {/* Invitation Code Card */}
                         <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 w-full">
                             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 text-center">Código de Invitación</p>
-                            <p className="text-2xl font-black text-indigo-700 text-center tracking-[0.5em]">{group.codigo_invitacion || '------'}</p>
+                            <p className="text-2xl font-black text-indigo-700 text-center tracking-[0.5em]">{group.codigo_invitacion?.toUpperCase() || '------'}</p>
                         </div>
 
                         <Link href="/groups" className="block w-full bg-white p-10 rounded-3xl shadow-2xl hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer border-t-8 border-indigo-500 group relative">

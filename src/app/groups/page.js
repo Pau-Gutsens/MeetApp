@@ -178,7 +178,7 @@ export default function GroupDetailsPage() {
                         <h1 className="text-4xl font-bold text-gray-900">{group.nombre}</h1>
                         <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100">
                             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Código</p>
-                            <p className="text-lg font-black text-indigo-700 tracking-widest">{group.codigo_invitacion || '------'}</p>
+                            <p className="text-lg font-black text-indigo-700 tracking-widest">{group.codigo_invitacion?.toUpperCase() || '------'}</p>
                         </div>
                     </div>
 

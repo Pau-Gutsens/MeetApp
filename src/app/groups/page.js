@@ -1,13 +1,14 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-
 import GroupCalendar from '@/components/GroupCalendar'
 
-export default function GroupDetailsPage() {
+function GroupDetailsContent() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const groupId = searchParams.get('id')
     const [user, setUser] = useState(null)
     const [group, setGroup] = useState(null)
     const [quedadas, setQuedadas] = useState([])
@@ -36,20 +37,31 @@ export default function GroupDetailsPage() {
     }, [router])
 
     const loadData = async () => {
+        if (!groupId) {
+            router.push('/dashboard')
+            return
+        }
+
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) { router.push('/auth'); return }
         setUser(session.user)
 
-        const { data } = await supabase
-            .from('Usuario')
+        // Verify Membership
+        const { data: membership, error } = await supabase
+            .from('MiembroGrupo')
             .select('id_grupo, Grupo(*)')
             .eq('id_usuario', session.user.id)
+            .eq('id_grupo', groupId)
             .single()
 
-        if (data?.Grupo) {
-            setGroup(data.Grupo)
-            fetchQuedadas(data.Grupo.id_grupo)
+        if (error || !membership?.Grupo) {
+            console.error("No eres miembro de este grupo o no existe")
+            router.push('/dashboard')
+            return
         }
+
+        setGroup(membership.Grupo)
+        fetchQuedadas(groupId)
         setLoading(false)
     }
 
@@ -388,5 +400,13 @@ export default function GroupDetailsPage() {
 
             </div>
         </div>
+    )
+}
+
+export default function GroupDetailsPage() {
+    return (
+        <Suspense fallback={<div className="p-8">Cargando...</div>}>
+            <GroupDetailsContent />
+        </Suspense>
     )
 }

@@ -8,8 +8,8 @@ export default function Dashboard() {
     const router = useRouter()
     const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
-    const [group, setGroup] = useState(null)
-    const [showCreateJoin, setShowCreateJoin] = useState(false) // For toggling modal/view
+    const [groups, setGroups] = useState([]) // Array of groups
+    const [showCreateJoin, setShowCreateJoin] = useState(false)
 
     // Create/Join States
     const [viewMode, setViewMode] = useState('main') // 'main', 'create', 'join', 'requests'
@@ -26,48 +26,81 @@ export default function Dashboard() {
                 return
             }
             setUser(session.user)
-
-            // Check Group
-            const { data } = await supabase
-                .from('Usuario')
-                .select('id_grupo, Grupo(*)')
-                .eq('id_usuario', session.user.id)
-                .single()
-
-            if (data?.Grupo) {
-                setGroup(data.Grupo)
-                fetchRequests(data.Grupo.id_grupo)
-            }
+            await fetchGroups(session.user.id)
             setLoading(false)
         }
         init()
     }, [router])
 
-    useEffect(() => {
-        if (!group) return
+    const fetchGroups = async (userId) => {
+        const { data, error } = await supabase
+            .from('MiembroGrupo')
+            .select('id_grupo, Grupo(*)')
+            .eq('id_usuario', userId)
 
-        const channel = supabase
-            .channel(`requests-${group.id_grupo}`)
+        if (data) {
+            const groupList = data.map(m => m.Grupo).filter(g => g !== null)
+            setGroups(groupList)
+            // Fetch requests for all groups the user is in
+            groupList.forEach(g => fetchRequests(g.id_grupo))
+        }
+    }
+
+    useEffect(() => {
+        if (!user) return
+
+        // Requester side: Listen for my own request updates
+        const myRequestsChannel = supabase
+            .channel(`my-requests-${user.id}`)
             .on('postgres_changes', {
-                event: '*',
+                event: 'UPDATE',
                 schema: 'public',
                 table: 'SolicitudUnion',
-                filter: `id_grupo=eq.${group.id_grupo}`
-            }, () => {
-                fetchRequests(group.id_grupo)
+                filter: `id_usuario=eq.${user.id}`
+            }, (payload) => {
+                if (payload.new.estado === 'aceptada') {
+                    fetchGroups(user.id)
+                }
+                // Update local msg state if needed
+                setMsg(payload.new.estado === 'aceptada' ? '¡Solicitud aceptada!' : 'Solicitud rechazada.')
             })
             .subscribe()
 
-        return () => { supabase.removeChannel(channel) }
-    }, [group])
+        return () => { supabase.removeChannel(myRequestsChannel) }
+    }, [user])
+
+    useEffect(() => {
+        if (groups.length === 0) return
+
+        const channels = groups.map(g => {
+            return supabase
+                .channel(`requests-${g.id_grupo}`)
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'SolicitudUnion',
+                    filter: `id_grupo=eq.${g.id_grupo}`
+                }, () => {
+                    fetchRequests(g.id_grupo)
+                })
+                .subscribe()
+        })
+
+        return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
+    }, [groups])
 
     const fetchRequests = async (groupId) => {
         const { data } = await supabase
             .from('SolicitudUnion')
-            .select('*, Usuario(email, id_usuario)')
+            .select('*, Usuario(email, id_usuario), Grupo(nombre)')
             .eq('id_grupo', groupId)
             .eq('estado', 'pendiente')
-        setPendingRequests(data || [])
+
+        setPendingRequests(prev => {
+            // Merge results and avoid duplicates
+            const otherGroups = prev.filter(p => p.id_grupo !== groupId)
+            return [...otherGroups, ...(data || [])]
+        })
     }
 
     const handleCreate = async () => {
@@ -85,9 +118,16 @@ export default function Dashboard() {
 
         if (error) { setMsg(error.message); return }
 
-        await supabase.from('Usuario').update({ id_grupo: data.id_grupo }).eq('id_usuario', user.id)
-        setGroup(data)
+        // Add as admin in MiembroGrupo
+        await supabase.from('MiembroGrupo').insert({
+            id_usuario: user.id,
+            id_grupo: data.id_grupo,
+            rol: 'admin'
+        })
+
+        await fetchGroups(user.id)
         setViewMode('main')
+        setInputName('')
     }
 
     const handleJoinByCode = async () => {
@@ -123,30 +163,23 @@ export default function Dashboard() {
     }
 
     const handleAcceptRequest = async (request) => {
-        // 1. Update user's group
-        const { error: userUpdateError } = await supabase
-            .from('Usuario')
-            .update({ id_grupo: request.id_grupo })
-            .eq('id_usuario', request.id_usuario)
-
-        if (userUpdateError) { alert(userUpdateError.message); return }
-
-        // 2. Mark request as accepted
-        await supabase
+        // 1. Rely on DB Trigger to add user to MiembroGrupo
+        const { error } = await supabase
             .from('SolicitudUnion')
             .update({ estado: 'aceptada' })
             .eq('id', request.id)
 
-        fetchRequests(group.id_grupo)
+        if (error) { alert(error.message); return }
+        fetchRequests(request.id_grupo)
     }
 
-    const handleRejectRequest = async (requestId) => {
+    const handleRejectRequest = async (requestId, groupId) => {
         await supabase
             .from('SolicitudUnion')
             .update({ estado: 'rechazada' })
             .eq('id', requestId)
 
-        fetchRequests(group.id_grupo)
+        fetchRequests(groupId)
     }
 
 
@@ -172,12 +205,14 @@ export default function Dashboard() {
             {/* MAIN CONTENT AREA */}
             <div className="h-full flex flex-col items-center justify-center min-h-[80vh]">
 
-                {/* CASE: NO GROUP -> CENTERED OPTIONS */}
-                {!group ? (
+                {/* CASE: NO GROUPS OR EXPLICIT CREATE/JOIN MODE */}
+                {(groups.length === 0 || viewMode === 'create' || viewMode === 'join') ? (
                     <div className="w-full max-w-md space-y-6 text-center animate-fade-in">
-                        <h1 className="text-3xl font-bold text-gray-800 mb-8">Bienvenido</h1>
+                        <h1 className="text-3xl font-bold text-gray-800 mb-8">
+                            {groups.length === 0 ? 'Bienvenido' : 'Nuevo Grupo'}
+                        </h1>
 
-                        {viewMode === 'main' && (
+                        {(viewMode === 'main' || groups.length === 0 && viewMode === 'main') && (
                             <div className="space-y-4">
                                 <button
                                     onClick={() => setViewMode('create')}
@@ -196,17 +231,17 @@ export default function Dashboard() {
 
                         {viewMode === 'create' && (
                             <div className="bg-white p-6 rounded-xl shadow-xl">
-                                <h3 className="text-lg font-bold mb-4">Nuevo Grupo</h3>
+                                <h3 className="text-lg font-bold mb-4">Nombre del Grupo</h3>
                                 <input
                                     className="w-full border p-3 rounded mb-4"
-                                    placeholder="Nombre..."
+                                    placeholder="Ej: Los Viajeros, Familia..."
                                     value={inputName}
                                     onChange={e => setInputName(e.target.value)}
                                 />
                                 {msg && <p className="text-red-500 text-sm mb-2">{msg}</p>}
                                 <div className="flex gap-2">
                                     <button onClick={() => setViewMode('main')} className="flex-1 py-2 text-gray-500">Cancelar</button>
-                                    <button onClick={handleCreate} className="flex-1 py-2 bg-indigo-600 text-white rounded">Crear</button>
+                                    <button onClick={handleCreate} className="flex-1 py-2 bg-indigo-600 text-white rounded font-bold">Crear</button>
                                 </div>
                             </div>
                         )}
@@ -228,71 +263,84 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         )}
+
+                        {groups.length > 0 && viewMode !== 'main' && (
+                            <button onClick={() => setViewMode('main')} className="mt-4 text-indigo-600 font-bold">Ver mis grupos</button>
+                        )}
                     </div>
                 ) : (
-                    /* CASE: HAS GROUP -> GROUP CARD CENTERED */
-                    <div className="flex flex-col items-center gap-6 w-full max-w-lg">
-                        {/* Invitation Code Card */}
-                        <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 w-full">
-                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 text-center">Código de Invitación</p>
-                            <p className="text-2xl font-black text-indigo-700 text-center tracking-[0.5em]">{group.codigo_invitacion?.toUpperCase() || '------'}</p>
+                    /* CASE: HAS GROUPS -> LIST CARDS */
+                    <div className="w-full max-w-4xl animate-fade-in">
+                        <div className="flex justify-between items-end mb-8">
+                            <div>
+                                <h1 className="text-3xl font-black text-gray-900">Mis Grupos</h1>
+                                <p className="text-gray-500">Selecciona un grupo para entrar</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setViewMode('join')}
+                                    className="px-4 py-2 bg-white text-indigo-600 border border-indigo-100 rounded-xl font-bold shadow-sm hover:bg-indigo-50"
+                                >
+                                    Unirse
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('create')}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold shadow-md hover:bg-indigo-700"
+                                >
+                                    + Nuevo
+                                </button>
+                            </div>
                         </div>
 
-                        <Link href="/groups" className="block w-full bg-white p-10 rounded-3xl shadow-2xl hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer border-t-8 border-indigo-500 group relative">
-                            <h1 className="text-4xl font-extrabold text-gray-900 mb-2">{group.nombre}</h1>
-                            <p className="text-indigo-600 font-medium transition-opacity">
-                                Entrar al Grupo &rarr;
-                            </p>
-                        </Link>
-
-                        {/* Admin Notifications / Notices */}
-                        <div className="w-full mt-4">
-                            <button
-                                onClick={() => {
-                                    setViewMode(viewMode === 'requests' ? 'main' : 'requests');
-                                    if (viewMode !== 'requests') fetchRequests(group.id_grupo);
-                                }}
-                                className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-indigo-600 transition-colors"
-                            >
-                                🔔 Avisos y Solicitudes
-                            </button>
-
-                            {viewMode === 'requests' && (
-                                <div className="mt-4 bg-white rounded-2xl shadow-lg p-4 border border-gray-100 animate-slide-up">
-                                    <h3 className="text-sm font-black text-gray-800 mb-3">Solicitudes Pendientes</h3>
-                                    <div className="space-y-3">
-                                        {pendingRequests.map(req => (
-                                            <div key={req.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
-                                                <span className="text-sm font-medium text-gray-700">{req.Usuario?.email}</span>
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => handleRejectRequest(req.id)} className="px-3 py-1 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg">Rechazar</button>
-                                                    <button onClick={() => handleAcceptRequest(req)} className="px-3 py-1 text-xs font-bold text-green-600 bg-white shadow-sm border border-green-100 rounded-lg">Aceptar</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {pendingRequests.length === 0 && <p className="text-xs text-gray-400 italic text-center py-4">No hay avisos nuevos.</p>}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {groups.map(g => (
+                                <Link
+                                    key={g.id_grupo}
+                                    href={`/groups?id=${g.id_grupo}`}
+                                    className="bg-white p-6 rounded-3xl shadow-lg border-t-4 border-indigo-500 hover:scale-[1.02] transition-all group"
+                                >
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h2 className="text-2xl font-black text-gray-800 group-hover:text-indigo-600 transition-colors">{g.nombre}</h2>
+                                        <div className="bg-indigo-50 px-2 py-1 rounded-lg">
+                                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">Código</span>
+                                            <p className="text-xs font-bold text-indigo-600">{g.codigo_invitacion?.toUpperCase()}</p>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                    <p className="text-gray-400 text-sm font-medium">Toca para entrar &rarr;</p>
+                                </Link>
+                            ))}
                         </div>
+
+                        {/* Global Notifications */}
+                        {pendingRequests.length > 0 && (
+                            <div className="mt-12">
+                                <h3 className="text-lg font-black text-gray-800 mb-4 flex items-center gap-2">
+                                    <span className="relative flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                    </span>
+                                    Avisos Pendientes
+                                </h3>
+                                <div className="space-y-3">
+                                    {pendingRequests.map(req => (
+                                        <div key={req.id} className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100 animate-slide-up">
+                                            <div>
+                                                <p className="text-xs font-black text-indigo-500 uppercase">{req.Grupo?.nombre}</p>
+                                                <p className="text-sm font-medium text-gray-700">{req.Usuario?.email} quiere unirse</p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleRejectRequest(req.id, req.id_grupo)} className="px-3 py-1 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg">Rechazar</button>
+                                                <button onClick={() => handleAcceptRequest(req)} className="px-3 py-1 text-xs font-bold text-green-600 bg-indigo-50 rounded-lg">Aceptar</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
 
-            {/* BUTTON BOTTOM RIGHT: ONLY IF HAS GROUP */}
-            {group && (
-                <div className="fixed bottom-8 right-8 z-50">
-                    <button
-                        onClick={() => { setGroup(null); setViewMode('main'); }} // Simple hack: clear local group state to show centering options. Reload prefers.
-                        className="bg-gray-900 text-white p-4 rounded-full shadow-2xl hover:bg-gray-800 transition-transform hover:rotate-90"
-                        title="Cambiar o Crear Grupo"
-                    >
-                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                    </button>
-                </div>
-            )}
         </div>
     )
 }

@@ -237,34 +237,34 @@ export default function Dashboard() {
 
                         {viewMode === 'create' && (
                             <div className="bg-white p-6 rounded-xl shadow-xl">
-                                <h3 className="text-lg font-bold mb-4">Nombre del Grupo</h3>
+                                <h3 className="text-lg font-bold mb-4 text-gray-900">Nombre del Grupo</h3>
                                 <input
-                                    className="w-full border p-3 rounded mb-4"
+                                    className="w-full border p-3 rounded mb-4 text-gray-900 focus:ring-2 focus:ring-indigo-500"
                                     placeholder="Ej: Los Viajeros, Familia..."
                                     value={inputName}
                                     onChange={e => setInputName(e.target.value)}
                                 />
-                                {msg && <p className="text-red-500 text-sm mb-2">{msg}</p>}
+                                {msg && <p className="text-red-600 text-sm mb-2 font-bold">{msg}</p>}
                                 <div className="flex gap-2">
-                                    <button onClick={() => setViewMode('main')} className="flex-1 py-2 text-gray-500">Cancelar</button>
-                                    <button onClick={handleCreate} className="flex-1 py-2 bg-indigo-600 text-white rounded font-bold">Crear</button>
+                                    <button onClick={() => setViewMode('main')} className="flex-1 py-2 text-gray-600 font-bold">Cancelar</button>
+                                    <button onClick={handleCreate} className="flex-1 py-2 bg-indigo-600 text-white rounded font-bold shadow-md">Crear</button>
                                 </div>
                             </div>
                         )}
 
                         {viewMode === 'join' && (
                             <div className="bg-white p-6 rounded-xl shadow-xl">
-                                <h3 className="text-lg font-bold mb-4">Unirse con Código</h3>
+                                <h3 className="text-lg font-bold mb-4 text-gray-900">Unirse con Código</h3>
                                 <input
-                                    className="w-full border p-3 rounded mb-4 text-center font-black text-xl uppercase tracking-widest"
+                                    className="w-full border p-3 rounded mb-4 text-center font-black text-xl uppercase tracking-widest text-gray-900 focus:ring-2 focus:ring-indigo-500"
                                     placeholder="CÓDIGO"
                                     maxLength={6}
                                     value={joinCode}
                                     onChange={e => setJoinCode(e.target.value.toUpperCase())}
                                 />
-                                {msg && <p className={`text-sm mb-4 font-bold ${msg.includes('enviada') ? 'text-green-600' : 'text-red-500'}`}>{msg}</p>}
+                                {msg && <p className={`text-sm mb-4 font-bold ${msg.includes('enviada') || msg.includes('aceptada') ? 'text-green-600' : 'text-red-600'}`}>{msg}</p>}
                                 <div className="flex gap-2">
-                                    <button onClick={() => { setViewMode('main'); setMsg(''); }} className="flex-1 py-2 text-gray-500">Volver</button>
+                                    <button onClick={() => { setViewMode('main'); setMsg(''); }} className="flex-1 py-2 text-gray-600 font-bold">Volver</button>
                                     <button onClick={handleJoinByCode} className="flex-1 py-2 bg-indigo-600 text-white rounded font-bold shadow-md">Solicitar</button>
                                 </div>
                             </div>
@@ -332,11 +332,11 @@ export default function Dashboard() {
                                         <div key={req.id} className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100 animate-slide-up">
                                             <div>
                                                 <p className="text-xs font-black text-indigo-500 uppercase">{req.Grupo?.nombre}</p>
-                                                <p className="text-sm font-medium text-gray-700">{req.Usuario?.email} quiere unirse</p>
+                                                <p className="text-sm font-medium text-gray-700">{req.Usuario?.email || 'Usuario'} quiere unirse</p>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button onClick={() => handleRejectRequest(req.id, req.id_grupo)} className="px-3 py-1 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg">Rechazar</button>
-                                                <button onClick={() => handleAcceptRequest(req)} className="px-3 py-1 text-xs font-bold text-green-600 bg-indigo-50 rounded-lg">Aceptar</button>
+                                                <button onClick={() => handleRejectRequest(req.id, req.id_grupo)} className="px-3 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg">Rechazar</button>
+                                                <button onClick={() => handleAcceptRequest(req)} className="px-3 py-1 text-xs font-bold text-green-700 bg-green-50 hover:bg-green-100 rounded-lg">Aceptar</button>
                                             </div>
                                         </div>
                                     ))}

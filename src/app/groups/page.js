@@ -190,7 +190,7 @@ function GroupDetailsContent() {
                         <h1 className="text-4xl font-bold text-gray-900">{group.nombre}</h1>
                         <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100">
                             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Código</p>
-                            <p className="text-lg font-black text-indigo-700 tracking-widest">{group.codigo_invitacion?.toUpperCase() || '------'}</p>
+                            <p className="text-lg font-black text-indigo-700 tracking-widest">{group.codigo_invitacion?.toUpperCase()}</p>
                         </div>
                     </div>
 
@@ -279,11 +279,11 @@ function GroupDetailsContent() {
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Nombre</label>
-                                        <input className="w-full p-3 bg-gray-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-black" value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} placeholder="Cena de Navidad, Bolera..." />
+                                        <input className="w-full p-3 bg-gray-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-black text-gray-900" value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} placeholder="Cena de Navidad, Bolera..." />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Descripción</label>
-                                        <textarea className="w-full p-3 bg-gray-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-black" value={formData.descripcion} onChange={e => setFormData({ ...formData, descripcion: e.target.value })} placeholder="Detalles del plan..." />
+                                        <textarea className="w-full p-3 bg-gray-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-black text-gray-900" value={formData.descripcion} onChange={e => setFormData({ ...formData, descripcion: e.target.value })} placeholder="Detalles del plan..." />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
@@ -348,9 +348,9 @@ function GroupDetailsContent() {
                                                 <div key={i} className="flex items-center justify-between bg-gray-50 p-2 rounded-xl">
                                                     <div className="flex items-center gap-3">
                                                         <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-800">
-                                                            {p.Usuario.email[0].toUpperCase()}
+                                                            {p.Usuario?.email?.[0]?.toUpperCase() || '?'}
                                                         </div>
-                                                        <span className="text-sm font-medium text-gray-700">{p.Usuario.email}</span>
+                                                        <span className="text-sm font-medium text-gray-700">{p.Usuario?.email || 'Usuario desconocido'}</span>
                                                     </div>
                                                     <span className="text-[10px] px-2 py-1 bg-white border border-gray-200 rounded-full font-bold text-gray-500 uppercase tracking-wider">
                                                         {p.rol || 'Asistente'}

@@ -255,7 +255,7 @@ export default function GroupCalendar({ groupId, userId }) {
                                         >
                                             <img src={photo.url} alt="Recuerdo" className="w-full h-full object-cover" />
                                             <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {photo.Usuario?.email}
+                                                {photo.Usuario?.email || 'Anon'}
                                             </div>
                                             {manageMode && (
                                                 <div className={`absolute top-1 right-1 h-4 w-4 rounded-full border border-white ${photo.es_visible ? 'bg-green-500' : 'bg-gray-400'}`} />
@@ -295,9 +295,9 @@ export default function GroupCalendar({ groupId, userId }) {
                                 <h3 className="font-bold text-gray-800 mb-3">💬 Comentarios</h3>
                                 <div className="space-y-3 mb-4">
                                     {comments.map(c => (
-                                        <div key={c.id} className="bg-gray-50 p-3 rounded-xl rounded-tl-none">
-                                            <div className="text-xs text-indigo-600 font-bold mb-1">{c.Usuario?.email}</div>
-                                            <p className="text-sm text-gray-700">{c.texto}</p>
+                                        <div key={c.id} className="bg-gray-50 p-3 rounded-xl rounded-tl-none border border-gray-100">
+                                            <div className="text-xs text-indigo-600 font-bold mb-1">{c.Usuario?.email || 'Anónimo'}</div>
+                                            <p className="text-sm text-gray-900 font-medium">{c.texto}</p>
                                         </div>
                                     ))}
                                     {comments.length === 0 && <p className="text-sm text-gray-400 italic">Sé el primero en comentar qué tal fue...</p>}
@@ -308,7 +308,7 @@ export default function GroupCalendar({ groupId, userId }) {
                                     <input
                                         type="text"
                                         placeholder="Escribe un recuerdo..."
-                                        className="flex-1 bg-gray-50 border-none rounded-lg text-sm px-3 py-2"
+                                        className="flex-1 bg-gray-50 border border-gray-200 rounded-lg text-sm px-3 py-2 text-gray-900 focus:ring-2 focus:ring-indigo-500"
                                         value={newComment}
                                         onChange={e => setNewComment(e.target.value)}
                                     />

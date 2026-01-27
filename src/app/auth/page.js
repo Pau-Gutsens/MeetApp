@@ -5,13 +5,23 @@ import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
+import { useAuth } from '@/context/AuthContext'
+import { useEffect } from 'react'
+
 export default function AuthPage() {
     const router = useRouter()
+    const { user } = useAuth()
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [isLogin, setIsLogin] = useState(true)
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState('')
+
+    useEffect(() => {
+        if (user) {
+            router.push('/dashboard')
+        }
+    }, [user, router])
 
     const handleAuth = async (e) => {
         e.preventDefault()

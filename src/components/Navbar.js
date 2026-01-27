@@ -1,23 +1,14 @@
 'use client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
-import { useEffect, useState } from 'react'
+import { useAuth } from '@/context/AuthContext'
 
 export default function Navbar() {
     const router = useRouter()
-    const [user, setUser] = useState(null)
-
-    useEffect(() => {
-        const getUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session) setUser(session.user)
-        }
-        getUser()
-    }, [])
+    const { user, signOut } = useAuth()
 
     const handleLogout = async () => {
-        await supabase.auth.signOut()
+        await signOut()
         router.push('/')
     }
 

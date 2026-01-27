@@ -12,9 +12,10 @@ export default function Dashboard() {
     const [showCreateJoin, setShowCreateJoin] = useState(false) // For toggling modal/view
 
     // Create/Join States
-    const [viewMode, setViewMode] = useState('main') // 'main', 'create', 'join'
+    const [viewMode, setViewMode] = useState('main') // 'main', 'create', 'join', 'requests'
     const [inputName, setInputName] = useState('')
-    const [joinList, setJoinList] = useState([])
+    const [joinCode, setJoinCode] = useState('')
+    const [pendingRequests, setPendingRequests] = useState([])
     const [msg, setMsg] = useState('')
 
     useEffect(() => {
@@ -35,15 +36,53 @@ export default function Dashboard() {
 
             if (data?.Grupo) {
                 setGroup(data.Grupo)
+                fetchRequests(data.Grupo.id_grupo)
             }
             setLoading(false)
         }
         init()
     }, [router])
 
+    useEffect(() => {
+        if (!group) return
+
+        const channel = supabase
+            .channel(`requests-${group.id_grupo}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'SolicitudUnion',
+                filter: `id_grupo=eq.${group.id_grupo}`
+            }, () => {
+                fetchRequests(group.id_grupo)
+            })
+            .subscribe()
+
+        return () => { supabase.removeChannel(channel) }
+    }, [group])
+
+    const fetchRequests = async (groupId) => {
+        const { data } = await supabase
+            .from('SolicitudUnion')
+            .select('*, Usuario(email, id_usuario)')
+            .eq('id_grupo', groupId)
+            .eq('estado', 'pendiente')
+        setPendingRequests(data || [])
+    }
+
     const handleCreate = async () => {
         if (!inputName.trim()) return
-        const { data, error } = await supabase.from('Grupo').insert({ nombre: inputName }).select().single()
+        const invitationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        const { data, error } = await supabase
+            .from('Grupo')
+            .insert({
+                nombre: inputName,
+                codigo_invitacion: invitationCode
+            })
+            .select()
+            .single()
+
         if (error) { setMsg(error.message); return }
 
         await supabase.from('Usuario').update({ id_grupo: data.id_grupo }).eq('id_usuario', user.id)
@@ -51,17 +90,66 @@ export default function Dashboard() {
         setViewMode('main')
     }
 
-    const loadJoinList = async () => {
-        const { data } = await supabase.from('Grupo').select('*').limit(20)
-        setJoinList(data || [])
-        setViewMode('join')
+    const handleJoinByCode = async () => {
+        setMsg('')
+        if (!joinCode.trim()) return
+
+        // 1. Find group by code
+        const { data: targetGroup, error: findError } = await supabase
+            .from('Grupo')
+            .select('id_grupo, nombre')
+            .eq('codigo_invitacion', joinCode.trim().toUpperCase())
+            .single()
+
+        if (findError || !targetGroup) {
+            setMsg('Código no válido o grupo no encontrado.')
+            return
+        }
+
+        // 2. Create request
+        const { error: requestError } = await supabase
+            .from('SolicitudUnion')
+            .insert({
+                id_usuario: user.id,
+                id_grupo: targetGroup.id_grupo
+            })
+
+        if (requestError) {
+            setMsg('Ya has solicitado unirte a este grupo o hubo un error.')
+        } else {
+            setMsg(`Solicitud enviada a ${targetGroup.nombre}. Espera a que el admin te acepte.`)
+            setJoinCode('')
+        }
     }
 
-    const handleJoin = async (id) => {
-        const { error } = await supabase.from('Usuario').update({ id_grupo: id }).eq('id_usuario', user.id)
-        if (error) { setMsg(error.message); return }
-        window.location.reload() // Simple reload to refresh state
+    const handleAcceptRequest = async (request) => {
+        // 1. Update user's group
+        const { error: userUpdateError } = await supabase
+            .from('Usuario')
+            .update({ id_grupo: request.id_grupo })
+            .eq('id_usuario', request.id_usuario)
+
+        if (userUpdateError) { alert(userUpdateError.message); return }
+
+        // 2. Mark request as accepted
+        await supabase
+            .from('SolicitudUnion')
+            .update({ estado: 'aceptada' })
+            .eq('id', request.id)
+
+        fetchRequests(group.id_grupo)
     }
+
+    const handleRejectRequest = async (requestId) => {
+        await supabase
+            .from('SolicitudUnion')
+            .update({ estado: 'rechazada' })
+            .eq('id', requestId)
+
+        fetchRequests(group.id_grupo)
+    }
+
+
 
     if (loading) return <div className="h-screen flex items-center justify-center">Cargando...</div>
 
@@ -98,10 +186,10 @@ export default function Dashboard() {
                                     Crear Grupo
                                 </button>
                                 <button
-                                    onClick={loadJoinList}
+                                    onClick={() => { setViewMode('join'); setMsg(''); }}
                                     className="w-full py-4 bg-white text-indigo-600 border-2 border-indigo-100 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition-all"
                                 >
-                                    Unirse a Grupo
+                                    Unirse con Código
                                 </button>
                             </div>
                         )}
@@ -124,30 +212,69 @@ export default function Dashboard() {
                         )}
 
                         {viewMode === 'join' && (
-                            <div className="bg-white p-6 rounded-xl shadow-xl text-left">
-                                <h3 className="text-lg font-bold mb-4">Elige un Grupo</h3>
-                                <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
-                                    {joinList.map(g => (
-                                        <div key={g.id_grupo} onClick={() => handleJoin(g.id_grupo)} className="p-3 border rounded hover:bg-indigo-50 cursor-pointer">
-                                            {g.nombre}
-                                        </div>
-                                    ))}
+                            <div className="bg-white p-6 rounded-xl shadow-xl">
+                                <h3 className="text-lg font-bold mb-4">Unirse con Código</h3>
+                                <input
+                                    className="w-full border p-3 rounded mb-4 text-center font-black text-xl uppercase tracking-widest"
+                                    placeholder="CÓDIGO"
+                                    maxLength={6}
+                                    value={joinCode}
+                                    onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                                />
+                                {msg && <p className={`text-sm mb-4 font-bold ${msg.includes('enviada') ? 'text-green-600' : 'text-red-500'}`}>{msg}</p>}
+                                <div className="flex gap-2">
+                                    <button onClick={() => { setViewMode('main'); setMsg(''); }} className="flex-1 py-2 text-gray-500">Volver</button>
+                                    <button onClick={handleJoinByCode} className="flex-1 py-2 bg-indigo-600 text-white rounded font-bold shadow-md">Solicitar</button>
                                 </div>
-                                <button onClick={() => setViewMode('main')} className="w-full py-2 text-gray-500">Cancelar</button>
                             </div>
                         )}
                     </div>
                 ) : (
                     /* CASE: HAS GROUP -> GROUP CARD CENTERED */
-                    <div className="text-center w-full max-w-lg">
-                        <h2 className="text-gray-500 mb-4">Tu Grupo Actual</h2>
+                    <div className="flex flex-col items-center gap-6 w-full max-w-lg">
+                        {/* Invitation Code Card */}
+                        <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 w-full">
+                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 text-center">Código de Invitación</p>
+                            <p className="text-2xl font-black text-indigo-700 text-center tracking-[0.5em]">{group.codigo_invitacion || '------'}</p>
+                        </div>
 
-                        <Link href="/groups" className="block bg-white p-10 rounded-3xl shadow-2xl hover:shadow-xl hover:scale-105 transition-all cursor-pointer border-t-8 border-indigo-500 group">
+                        <Link href="/groups" className="block w-full bg-white p-10 rounded-3xl shadow-2xl hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer border-t-8 border-indigo-500 group relative">
                             <h1 className="text-4xl font-extrabold text-gray-900 mb-2">{group.nombre}</h1>
-                            <p className="text-indigo-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                                Toca para ver las Quedadas &rarr;
+                            <p className="text-indigo-600 font-medium transition-opacity">
+                                Entrar al Grupo &rarr;
                             </p>
                         </Link>
+
+                        {/* Admin Notifications / Notices */}
+                        <div className="w-full mt-4">
+                            <button
+                                onClick={() => {
+                                    setViewMode(viewMode === 'requests' ? 'main' : 'requests');
+                                    if (viewMode !== 'requests') fetchRequests(group.id_grupo);
+                                }}
+                                className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-indigo-600 transition-colors"
+                            >
+                                🔔 Avisos y Solicitudes
+                            </button>
+
+                            {viewMode === 'requests' && (
+                                <div className="mt-4 bg-white rounded-2xl shadow-lg p-4 border border-gray-100 animate-slide-up">
+                                    <h3 className="text-sm font-black text-gray-800 mb-3">Solicitudes Pendientes</h3>
+                                    <div className="space-y-3">
+                                        {pendingRequests.map(req => (
+                                            <div key={req.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
+                                                <span className="text-sm font-medium text-gray-700">{req.Usuario?.email}</span>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleRejectRequest(req.id)} className="px-3 py-1 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg">Rechazar</button>
+                                                    <button onClick={() => handleAcceptRequest(req)} className="px-3 py-1 text-xs font-bold text-green-600 bg-white shadow-sm border border-green-100 rounded-lg">Aceptar</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {pendingRequests.length === 0 && <p className="text-xs text-gray-400 italic text-center py-4">No hay avisos nuevos.</p>}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>

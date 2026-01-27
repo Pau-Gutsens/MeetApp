@@ -8,12 +8,54 @@ export default function GroupCalendar({ groupId, userId }) {
     const [photos, setPhotos] = useState([])
     const [comments, setComments] = useState([])
     const [newComment, setNewComment] = useState('')
-    const [newPhotoUrl, setNewPhotoUrl] = useState('')
+    const [uploading, setUploading] = useState(false)
     const [loading, setLoading] = useState(true)
+    const [userRole, setUserRole] = useState(null)
+    const [manageMode, setManageMode] = useState(false)
+    const [allPhotos, setAllPhotos] = useState([]) // All photos for management
 
     useEffect(() => {
         fetchPastQuedadas()
     }, [groupId])
+
+    useEffect(() => {
+        if (!selectedQuedada) return
+
+        const channel = supabase
+            .channel(`quedada-memories-${selectedQuedada.id_quedada}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'Foto',
+                filter: `id_quedada=eq.${selectedQuedada.id_quedada}`
+            }, async () => {
+                // Fetch all to maintain Top 10 logic correctly
+                const { data } = await supabase
+                    .from('Foto')
+                    .select('*, Usuario(email)')
+                    .eq('id_quedada', selectedQuedada.id_quedada)
+                    .order('created_at', { ascending: false })
+
+                setAllPhotos(data || [])
+                setPhotos((data || []).filter(p => p.es_visible).slice(0, 10))
+            })
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'Comentario',
+                filter: `id_quedada=eq.${selectedQuedada.id_quedada}`
+            }, async () => {
+                const { data } = await supabase
+                    .from('Comentario')
+                    .select('*, Usuario(email)')
+                    .eq('id_quedada', selectedQuedada.id_quedada)
+                    .order('created_at', { ascending: true })
+                setComments(data || [])
+            })
+            .subscribe()
+
+        return () => { supabase.removeChannel(channel) }
+    }, [selectedQuedada])
 
     const fetchPastQuedadas = async () => {
         const now = new Date().toISOString()
@@ -30,12 +72,22 @@ export default function GroupCalendar({ groupId, userId }) {
 
     const handleSelectQuedada = async (quedada) => {
         setSelectedQuedada(quedada)
-        // Fetch Details in parallel
+        setManageMode(false)
+
+        // 1. Fetch User Role for this Quedada
+        const { data: part } = await supabase
+            .from('ParticipacionQuedada')
+            .select('rol')
+            .eq('id_quedada', quedada.id_quedada)
+            .eq('id_usuario', userId)
+            .single()
+        setUserRole(part?.rol || 'Asistente')
+
+        // 2. Fetch Details in parallel
         const pPhotos = supabase
             .from('Foto')
             .select('*, Usuario(email)')
             .eq('id_quedada', quedada.id_quedada)
-            .limit(10)
             .order('created_at', { ascending: false })
 
         const pComments = supabase
@@ -46,8 +98,30 @@ export default function GroupCalendar({ groupId, userId }) {
 
         const [resPhotos, resComments] = await Promise.all([pPhotos, pComments])
 
-        setPhotos(resPhotos.data || [])
+        const totalPhotos = resPhotos.data || []
+        setAllPhotos(totalPhotos)
+        setPhotos(totalPhotos.filter(p => p.es_visible).slice(0, 10))
         setComments(resComments.data || [])
+    }
+
+    const togglePhotoVisibility = async (photo) => {
+        const currentlyVisible = allPhotos.filter(p => p.es_visible).length
+        if (!photo.es_visible && currentlyVisible >= 10) {
+            alert("Ya hay 10 fotos visibles. Desactiva una antes de activar otra.")
+            return
+        }
+
+        const { error } = await supabase
+            .from('Foto')
+            .update({ es_visible: !photo.es_visible })
+            .eq('id', photo.id)
+
+        if (!error) {
+            // Refresh local state
+            const updated = allPhotos.map(p => p.id === photo.id ? { ...p, es_visible: !p.es_visible } : p)
+            setAllPhotos(updated)
+            setPhotos(updated.filter(p => p.es_visible).slice(0, 10))
+        }
     }
 
     const handleAddComment = async (e) => {
@@ -72,26 +146,56 @@ export default function GroupCalendar({ groupId, userId }) {
         }
     }
 
-    const handleAddPhoto = async (e) => {
-        e.preventDefault()
-        if (!newPhotoUrl.trim()) return
+    const handleUploadPhoto = async (e) => {
+        const file = e.target.files[0]
+        if (!file) return
 
-        const { error } = await supabase.from('Foto').insert({
-            url: newPhotoUrl,
-            id_quedada: selectedQuedada.id_quedada,
-            id_usuario: userId
-        })
+        setUploading(true)
+        try {
+            const fileExt = file.name.split('.').pop()
+            const fileName = `${selectedQuedada.id_quedada}/${userId}/${Date.now()}.${fileExt}`
+            const filePath = `quedadas/${fileName}`
 
-        if (!error) {
-            setNewPhotoUrl('')
-            // Refresh photos
+            // 1. Upload to Supabase Storage
+            const { error: uploadError } = await supabase.storage
+                .from('Calendar photos')
+                .upload(filePath, file)
+
+            if (uploadError) throw uploadError
+
+            // 2. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('Calendar photos')
+                .getPublicUrl(filePath)
+
+            // 3. Insert into Foto table
+            const visibleCount = allPhotos.filter(p => p.es_visible).length
+            const shouldBeVisible = visibleCount < 10
+
+            const { error: dbError } = await supabase.from('Foto').insert({
+                url: publicUrl,
+                id_quedada: selectedQuedada.id_quedada,
+                id_usuario: userId,
+                es_visible: shouldBeVisible
+            })
+
+            if (dbError) throw dbError
+
+            // 4. Refresh photos
             const { data } = await supabase
                 .from('Foto')
                 .select('*, Usuario(email)')
                 .eq('id_quedada', selectedQuedada.id_quedada)
-                .limit(10)
                 .order('created_at', { ascending: false })
-            setPhotos(data || [])
+
+            setAllPhotos(data || [])
+            setPhotos((data || []).filter(p => p.es_visible).slice(0, 10))
+
+        } catch (error) {
+            console.error('Error uploading photo:', error)
+            alert('Error al subir la foto. Asegúrate de haber creado el bucket "Calendar photos" en Supabase Storage.')
+        } finally {
+            setUploading(false)
         }
     }
 
@@ -128,31 +232,60 @@ export default function GroupCalendar({ groupId, userId }) {
 
                             {/* Photos Section */}
                             <section>
-                                <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                    📸 Galería (Top 10)
-                                </h3>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                                    {photos.map(photo => (
-                                        <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 group">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                        📸 Galería (Top 10)
+                                    </h3>
+                                    {(userRole === 'Organizador' || userRole === 'Fotógrafo') && (
+                                        <button
+                                            onClick={() => setManageMode(!manageMode)}
+                                            className={`text-xs font-bold px-3 py-1 rounded-full border transition-all ${manageMode ? 'bg-black text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                                        >
+                                            {manageMode ? '✅ Salir Gestión' : '⚙️ Gestionar Fotos'}
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className={`grid grid-cols-2 md:grid-cols-5 gap-2 mb-4 ${manageMode ? 'bg-gray-100 p-4 rounded-2xl' : ''}`}>
+                                    {(manageMode ? allPhotos : photos).map(photo => (
+                                        <div
+                                            key={photo.id}
+                                            onClick={() => manageMode && togglePhotoVisibility(photo)}
+                                            className={`relative aspect-square rounded-lg overflow-hidden bg-white group shadow-sm transition-all ${manageMode ? 'cursor-pointer hover:scale-95' : ''} ${manageMode && !photo.es_visible ? 'opacity-40 grayscale' : ''}`}
+                                        >
                                             <img src={photo.url} alt="Recuerdo" className="w-full h-full object-cover" />
                                             <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 {photo.Usuario?.email}
                                             </div>
+                                            {manageMode && (
+                                                <div className={`absolute top-1 right-1 h-4 w-4 rounded-full border border-white ${photo.es_visible ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                            )}
                                         </div>
                                     ))}
+                                    {manageMode && allPhotos.length === 0 && <p className="col-span-full text-center text-gray-400 py-8">No hay fotos que gestionar.</p>}
+                                    {!manageMode && photos.length === 0 && <p className="col-span-full text-center text-gray-400 py-8">Aún no hay fotos visibles.</p>}
                                 </div>
 
                                 {/* Add Photo Input */}
-                                <form onSubmit={handleAddPhoto} className="flex gap-2">
-                                    <input
-                                        type="url"
-                                        placeholder="Pegar URL de imagen..."
-                                        className="flex-1 bg-gray-50 border-none rounded-lg text-sm px-3 py-2"
-                                        value={newPhotoUrl}
-                                        onChange={e => setNewPhotoUrl(e.target.value)}
-                                    />
-                                    <button type="submit" className="bg-black text-white px-4 py-2 rounded-lg text-xs font-bold">Subir</button>
-                                </form>
+                                <div className="mt-4">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">📸 Añadir recuerdo</label>
+                                    <div className="flex gap-2">
+                                        <label className="flex-1 cursor-pointer bg-gray-50 hover:bg-gray-100 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center p-4 transition-all group-hover:border-indigo-400">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={handleUploadPhoto}
+                                                disabled={uploading}
+                                            />
+                                            {uploading ? (
+                                                <span className="text-sm text-indigo-600 font-bold animate-pulse">Subiendo...</span>
+                                            ) : (
+                                                <span className="text-sm text-gray-500">Toca para subir foto</span>
+                                            )}
+                                        </label>
+                                    </div>
+                                </div>
                             </section>
 
                             <hr className="border-gray-100" />

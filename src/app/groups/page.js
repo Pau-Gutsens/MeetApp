@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import GroupCalendar from '@/components/GroupCalendar'
+import AvailabilityPicker from '@/components/AvailabilityPicker'
 
 function GroupDetailsContent() {
     const router = useRouter()
@@ -20,6 +21,9 @@ function GroupDetailsContent() {
     const [selectedQuedada, setSelectedQuedada] = useState(null)
     const [participants, setParticipants] = useState([])
     const [isParticipant, setIsParticipant] = useState(false)
+    const [myMembership, setMyMembership] = useState(null)
+    const [myApodo, setMyApodo] = useState('')
+    const [isEditingApodo, setIsEditingApodo] = useState(false)
 
     // Create Form
     const [formData, setFormData] = useState({
@@ -49,7 +53,7 @@ function GroupDetailsContent() {
         // Verify Membership
         const { data: membership, error } = await supabase
             .from('MiembroGrupo')
-            .select('id_grupo, Grupo(*)')
+            .select('*, Grupo(*)')
             .eq('id_usuario', session.user.id)
             .eq('id_grupo', groupId)
             .single()
@@ -61,6 +65,8 @@ function GroupDetailsContent() {
         }
 
         setGroup(membership.Grupo)
+        setMyMembership(membership)
+        setMyApodo(membership.apodo || '')
         fetchQuedadas(groupId)
         setLoading(false)
     }
@@ -68,7 +74,7 @@ function GroupDetailsContent() {
     const fetchQuedadas = async (groupId) => {
         const { data } = await supabase
             .from('Quedada')
-            .select('*')
+            .select('*, ParticipacionQuedada(id_usuario)')
             .eq('id_grupo', groupId)
             .order('fecha_inicio', { ascending: true })
         setQuedadas(data || [])
@@ -103,14 +109,34 @@ function GroupDetailsContent() {
     }, [group, selectedQuedada])
 
     const fetchQuedadaDetails = async (quedadaId) => {
-        // Get Participants
+        // 1. Get Participants for this quedada
         const { data: parts } = await supabase
             .from('ParticipacionQuedada')
-            .select('*, Usuario(email)')
+            .select(`
+                *,
+                Usuario(email, nombre)
+            `)
             .eq('id_quedada', quedadaId)
 
-        setParticipants(parts || [])
-        const amIIn = parts?.find(p => p.id_usuario === user.id)
+        // 2. Get all members of the group to get their nicknames
+        const { data: members } = await supabase
+            .from('MiembroGrupo')
+            .select('id_usuario, apodo')
+            .eq('id_grupo', groupId)
+
+        const enhancedParts = (parts || []).map(p => {
+            const member = members?.find(m => m.id_usuario === p.id_usuario)
+            const u = Array.isArray(p.Usuario) ? p.Usuario[0] : p.Usuario
+            const name = member?.apodo || u?.nombre || u?.email || 'Anónimo'
+
+            return {
+                ...p,
+                displayName: name
+            }
+        })
+
+        setParticipants(enhancedParts)
+        const amIIn = enhancedParts.find(p => p.id_usuario === user.id)
         setIsParticipant(!!amIIn)
     }
 
@@ -122,39 +148,60 @@ function GroupDetailsContent() {
         }
 
         try {
-            const { error } = await supabase.from('Quedada').insert({
+            const { data, error } = await supabase.from('Quedada').insert({
                 id_grupo: group.id_grupo,
                 ...formData,
                 estado: 'Propuesta'
-            })
+            }).select().single()
+
             if (error) throw error
 
+            // Auto-join as Organizador
+            await supabase.from('ParticipacionQuedada').insert({
+                id_quedada: data.id_quedada,
+                id_usuario: user.id,
+                rol: 'Organizador'
+            })
+
             await fetchQuedadas(group.id_grupo)
-            setView('list')
+            // Open the grid immediately for the new plan
+            selectQuedada(data)
             setFormData({ nombre: '', descripcion: '', fecha_inicio: '', fecha_fin: '', aforo_min: 1, aforo_max: 10 })
         } catch (e) { setMsg(e.message) }
     }
 
-    const handleJoin = async () => {
+    const handleJoin = async (quedada) => {
+        const amIParticipant = quedada.ParticipacionQuedada?.some(p => p.id_usuario === user.id)
+
         try {
-            if (isParticipant) {
+            if (amIParticipant) {
                 // Leave
                 await supabase
                     .from('ParticipacionQuedada')
                     .delete()
-                    .eq('id_quedada', selectedQuedada.id_quedada)
+                    .eq('id_quedada', quedada.id_quedada)
                     .eq('id_usuario', user.id)
+
+                if (selectedQuedada?.id_quedada === quedada.id_quedada) {
+                    setIsParticipant(false)
+                }
             } else {
                 // Join
                 await supabase
                     .from('ParticipacionQuedada')
                     .insert({
-                        id_quedada: selectedQuedada.id_quedada,
+                        id_quedada: quedada.id_quedada,
                         id_usuario: user.id,
                         rol: 'Invitado'
                     })
+
+                // After joining, open the availability grid automatically
+                selectQuedada(quedada)
             }
-            await fetchQuedadaDetails(selectedQuedada.id_quedada)
+            await fetchQuedadas(groupId)
+            if (selectedQuedada?.id_quedada === quedada.id_quedada) {
+                await fetchQuedadaDetails(quedada.id_quedada)
+            }
         } catch (e) { alert(e.message) }
     }
 
@@ -182,15 +229,43 @@ function GroupDetailsContent() {
                 </div>
             </Link>
 
-            <div className="max-w-4xl mx-auto pt-16">
+            <div className="max-w-7xl mx-auto pt-16">
 
                 {/* Header & Tabs */}
                 <div className="mb-8">
                     <div className="flex justify-between items-start mb-6">
                         <h1 className="text-4xl font-bold text-gray-900">{group.nombre}</h1>
-                        <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100">
-                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Código</p>
-                            <p className="text-lg font-black text-indigo-700 tracking-widest">{group.codigo_invitacion?.toUpperCase()}</p>
+                        <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 flex gap-4 items-center">
+                            <div>
+                                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Apodo</p>
+                                <div className="flex items-center gap-2">
+                                    {isEditingApodo ? (
+                                        <input
+                                            autoFocus
+                                            className="bg-white border border-indigo-200 rounded px-2 py-0.5 text-xs font-bold w-24 text-black"
+                                            value={myApodo}
+                                            onChange={e => setMyApodo(e.target.value)}
+                                            onBlur={async () => {
+                                                setIsEditingApodo(false)
+                                                await supabase.from('MiembroGrupo').update({ apodo: myApodo }).eq('id_grupo', groupId).eq('id_usuario', user.id)
+                                                if (selectedQuedada) fetchQuedadaDetails(selectedQuedada.id_quedada)
+                                            }}
+                                            onKeyDown={async (e) => {
+                                                if (e.key === 'Enter') e.currentTarget.blur()
+                                            }}
+                                        />
+                                    ) : (
+                                        <p onClick={() => setIsEditingApodo(true)} className="text-sm font-black text-indigo-700 cursor-pointer hover:underline">
+                                            {myApodo || 'Sin apodo'}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="w-px h-8 bg-indigo-100" />
+                            <div>
+                                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Código</p>
+                                <p className="text-lg font-black text-indigo-700 tracking-widest">{group.codigo_invitacion?.toUpperCase()}</p>
+                            </div>
                         </div>
                     </div>
 
@@ -251,22 +326,39 @@ function GroupDetailsContent() {
                                             <p className="text-gray-400 text-lg">No hay planes a la vista... 😴</p>
                                         </div>
                                     ) : (
-                                        quedadas.map(q => (
-                                            <div key={q.id_quedada} onClick={() => selectQuedada(q)} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all border border-gray-100 cursor-pointer flex justify-between items-center group">
-                                                <div>
-                                                    <div className="flex items-center gap-3 mb-1">
-                                                        <h3 className="text-xl font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">{q.nombre}</h3>
-                                                        <span className={`px-2 py-0.5 rounded text-xs font-bold border ${q.estado === 'Propuesta' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
-                                                            {q.estado}
-                                                        </span>
+                                        quedadas.map(q => {
+                                            const amIIn = q.ParticipacionQuedada?.some(p => p.id_usuario === user.id)
+                                            return (
+                                                <div key={q.id_quedada} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                                    <div className="flex-1 cursor-pointer" onClick={() => selectQuedada(q)}>
+                                                        <div className="flex items-center gap-3 mb-1">
+                                                            <h3 className="text-xl font-black text-gray-800 hover:text-indigo-600 transition-colors">{q.nombre}</h3>
+                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border ${q.estado === 'Propuesta' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
+                                                                {q.estado}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-gray-500 text-sm font-medium">📅 {new Date(q.fecha_inicio).toLocaleString()}</p>
+                                                        <p className="text-gray-400 text-xs mt-1 line-clamp-1">{q.descripcion}</p>
                                                     </div>
-                                                    <p className="text-gray-500 text-sm">📅 {new Date(q.fecha_inicio).toLocaleString()}</p>
+
+                                                    <div className="flex items-center gap-2 w-full md:w-auto">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleJoin(q); }}
+                                                            className={`flex-1 md:flex-none px-4 py-2 rounded-xl font-bold text-sm transition-all ${amIIn ? 'bg-gray-100 text-gray-600' : 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700'}`}
+                                                        >
+                                                            {amIIn ? 'Gestionar Horas' : '¡Me apunto!'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => selectQuedada(q)}
+                                                            className="p-2 text-gray-400 hover:text-black transition-colors"
+                                                            title="Ver detalles"
+                                                        >
+                                                            ➔
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="text-gray-400 group-hover:translate-x-1 transition-transform">
-                                                    ➔
-                                                </div>
-                                            </div>
-                                        ))
+                                            )
+                                        })
                                     )}
                                 </div>
                             </>
@@ -288,21 +380,21 @@ function GroupDetailsContent() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Inicio</label>
-                                            <input type="datetime-local" className="w-full p-3 bg-gray-50 rounded-xl" value={formData.fecha_inicio} onChange={e => setFormData({ ...formData, fecha_inicio: e.target.value })} />
+                                            <input type="datetime-local" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.fecha_inicio} onChange={e => setFormData({ ...formData, fecha_inicio: e.target.value })} />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Fin</label>
-                                            <input type="datetime-local" className="w-full p-3 bg-gray-50 rounded-xl" value={formData.fecha_fin} onChange={e => setFormData({ ...formData, fecha_fin: e.target.value })} />
+                                            <input type="datetime-local" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.fecha_fin} onChange={e => setFormData({ ...formData, fecha_fin: e.target.value })} />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Aforo Mín</label>
-                                            <input type="number" className="w-full p-3 bg-gray-50 rounded-xl" value={formData.aforo_min} onChange={e => setFormData({ ...formData, aforo_min: e.target.value })} />
+                                            <input type="number" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.aforo_min} onChange={e => setFormData({ ...formData, aforo_min: e.target.value })} />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Aforo Máx</label>
-                                            <input type="number" className="w-full p-3 bg-gray-50 rounded-xl" value={formData.aforo_max} onChange={e => setFormData({ ...formData, aforo_max: e.target.value })} />
+                                            <input type="number" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.aforo_max} onChange={e => setFormData({ ...formData, aforo_max: e.target.value })} />
                                         </div>
                                     </div>
 
@@ -348,9 +440,11 @@ function GroupDetailsContent() {
                                                 <div key={i} className="flex items-center justify-between bg-gray-50 p-2 rounded-xl">
                                                     <div className="flex items-center gap-3">
                                                         <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-800">
-                                                            {p.Usuario?.email?.[0]?.toUpperCase() || '?'}
+                                                            {(p.displayName || p.Usuario?.nombre || p.Usuario?.email || '?')[0].toUpperCase()}
                                                         </div>
-                                                        <span className="text-sm font-medium text-gray-700">{p.Usuario?.email || 'Usuario desconocido'}</span>
+                                                        <span className="text-sm font-medium text-gray-700">
+                                                            {p.displayName || p.Usuario?.nombre || p.Usuario?.email || 'Anónimo'} {p.id_usuario === user.id && '(Tú)'}
+                                                        </span>
                                                     </div>
                                                     <span className="text-[10px] px-2 py-1 bg-white border border-gray-200 rounded-full font-bold text-gray-500 uppercase tracking-wider">
                                                         {p.rol || 'Asistente'}
@@ -363,32 +457,41 @@ function GroupDetailsContent() {
                                 </div>
 
                                 {isParticipant && (
-                                    <div className="mb-6 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-                                        <label className="block text-xs font-black text-indigo-400 uppercase mb-2">Mi Rol en este plan</label>
-                                        <select
-                                            className="w-full p-3 bg-white rounded-xl border-none shadow-sm text-sm font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500"
-                                            value={participants.find(p => p.id_usuario === user.id)?.rol || 'Asistente'}
-                                            onChange={async (e) => {
-                                                const newRol = e.target.value;
-                                                const { error } = await supabase
-                                                    .from('ParticipacionQuedada')
-                                                    .update({ rol: newRol })
-                                                    .eq('id_quedada', selectedQuedada.id_quedada)
-                                                    .eq('id_usuario', user.id);
-                                                if (!error) fetchQuedadaDetails(selectedQuedada.id_quedada);
-                                            }}
-                                        >
-                                            <option value="Organizador">Organizador</option>
-                                            <option value="Fotógrafo">Fotógrafo</option>
-                                            <option value="Pagafantas">Pagafantas</option>
-                                            <option value="Invitado">Invitado</option>
-                                            <option value="Asistente">Asistente</option>
-                                        </select>
-                                    </div>
+                                    <>
+                                        <div className="mb-6 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                                            <label className="block text-xs font-black text-indigo-400 uppercase mb-2">Mi Rol en este plan</label>
+                                            <select
+                                                className="w-full p-3 bg-white rounded-xl border-none shadow-sm text-sm font-bold text-black focus:ring-2 focus:ring-indigo-500"
+                                                value={participants.find(p => p.id_usuario === user.id)?.rol || 'Asistente'}
+                                                onChange={async (e) => {
+                                                    const newRol = e.target.value;
+                                                    const { error } = await supabase
+                                                        .from('ParticipacionQuedada')
+                                                        .update({ rol: newRol })
+                                                        .eq('id_quedada', selectedQuedada.id_quedada)
+                                                        .eq('id_usuario', user.id);
+                                                    if (!error) fetchQuedadaDetails(selectedQuedada.id_quedada);
+                                                    else alert(error.message);
+                                                }}
+                                            >
+                                                <option value="Organizador">Organizador</option>
+                                                <option value="Fotógrafo">Fotógrafo</option>
+                                                <option value="Pagafantas">Pagafantas</option>
+                                                <option value="Invitado">Invitado</option>
+                                                <option value="Asistente">Asistente</option>
+                                            </select>
+                                        </div>
+
+                                        <AvailabilityPicker
+                                            quedada={selectedQuedada}
+                                            userId={user.id}
+                                            onUpdate={() => fetchQuedadaDetails(selectedQuedada.id_quedada)}
+                                        />
+                                    </>
                                 )}
 
                                 <button
-                                    onClick={handleJoin}
+                                    onClick={() => handleJoin(selectedQuedada)}
                                     className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] ${isParticipant ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
                                 >
                                     {isParticipant ? '❌ Me bajo del plan' : '✅ ¡Me apunto!'}

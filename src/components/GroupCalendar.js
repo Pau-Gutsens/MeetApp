@@ -30,14 +30,25 @@ export default function GroupCalendar({ groupId, userId }) {
                 filter: `id_quedada=eq.${selectedQuedada.id_quedada}`
             }, async () => {
                 // Fetch all to maintain Top 10 logic correctly
-                const { data } = await supabase
+                const { data: phs } = await supabase
                     .from('Foto')
-                    .select('*, Usuario(email)')
+                    .select('*, Usuario(email, nombre)')
                     .eq('id_quedada', selectedQuedada.id_quedada)
                     .order('created_at', { ascending: false })
 
-                setAllPhotos(data || [])
-                setPhotos((data || []).filter(p => p.es_visible).slice(0, 10))
+                const { data: members } = await supabase
+                    .from('MiembroGrupo')
+                    .select('id_usuario, apodo')
+                    .eq('id_grupo', groupId)
+
+                const enhancedPhs = (phs || []).map(photo => {
+                    const member = members?.find(m => m.id_usuario === photo.id_usuario)
+                    const u = Array.isArray(photo.Usuario) ? photo.Usuario[0] : photo.Usuario
+                    return { ...photo, displayName: member?.apodo || u?.nombre || u?.email || 'Anónimo' }
+                })
+
+                setAllPhotos(enhancedPhs || [])
+                setPhotos((enhancedPhs || []).filter(p => p.es_visible).slice(0, 10))
             })
             .on('postgres_changes', {
                 event: 'INSERT',
@@ -45,12 +56,26 @@ export default function GroupCalendar({ groupId, userId }) {
                 table: 'Comentario',
                 filter: `id_quedada=eq.${selectedQuedada.id_quedada}`
             }, async () => {
-                const { data } = await supabase
+                const { data: coms } = await supabase
                     .from('Comentario')
-                    .select('*, Usuario(email)')
+                    .select('*, Usuario(email, nombre)')
                     .eq('id_quedada', selectedQuedada.id_quedada)
                     .order('created_at', { ascending: true })
-                setComments(data || [])
+
+                const { data: members } = await supabase
+                    .from('MiembroGrupo')
+                    .select('id_usuario, apodo')
+                    .eq('id_grupo', groupId)
+
+                const enhancedComs = (coms || []).map(c => {
+                    const member = members?.find(m => m.id_usuario === c.id_usuario)
+                    const u = Array.isArray(c.Usuario) ? c.Usuario[0] : c.Usuario
+                    return {
+                        ...c,
+                        displayName: member?.apodo || u?.nombre || u?.email || 'Anónimo'
+                    }
+                })
+                setComments(enhancedComs)
             })
             .subscribe()
 
@@ -98,10 +123,28 @@ export default function GroupCalendar({ groupId, userId }) {
 
         const [resPhotos, resComments] = await Promise.all([pPhotos, pComments])
 
-        const totalPhotos = resPhotos.data || []
+        const { data: members } = await supabase
+            .from('MiembroGrupo')
+            .select('id_usuario, apodo')
+            .eq('id_grupo', groupId)
+
+        const totalPhotos = (resPhotos.data || []).map(photo => {
+            const member = members?.find(m => m.id_usuario === photo.id_usuario)
+            const u = Array.isArray(photo.Usuario) ? photo.Usuario[0] : photo.Usuario
+            return { ...photo, displayName: member?.apodo || u?.nombre || u?.email || 'Anónimo' }
+        })
         setAllPhotos(totalPhotos)
         setPhotos(totalPhotos.filter(p => p.es_visible).slice(0, 10))
-        setComments(resComments.data || [])
+
+        const enhanced = (resComments.data || []).map(p => {
+            const member = members?.find(m => m.id_usuario === p.id_usuario)
+            const u = Array.isArray(p.Usuario) ? p.Usuario[0] : p.Usuario
+            return {
+                ...p,
+                displayName: member?.apodo || u?.nombre || u?.email || 'Anónimo'
+            }
+        })
+        setComments(enhanced)
     }
 
     const togglePhotoVisibility = async (photo) => {
@@ -136,13 +179,26 @@ export default function GroupCalendar({ groupId, userId }) {
 
         if (!error) {
             setNewComment('')
-            // Refresh comments
-            const { data } = await supabase
+            // Refresh comments with names
+            const { data: coms } = await supabase
                 .from('Comentario')
-                .select('*, Usuario(email)')
+                .select('*, Usuario(email, nombre)')
                 .eq('id_quedada', selectedQuedada.id_quedada)
                 .order('created_at', { ascending: true })
-            setComments(data || [])
+
+            const { data: members } = await supabase
+                .from('MiembroGrupo')
+                .select('id_usuario, apodo')
+                .eq('id_grupo', groupId)
+
+            const enhancedComs = (coms || []).map(c => {
+                const member = members?.find(m => m.id_usuario === c.id_usuario)
+                return {
+                    ...c,
+                    displayName: member?.apodo || c.Usuario?.nombre || c.Usuario?.email
+                }
+            })
+            setComments(enhancedComs)
         }
     }
 
@@ -204,7 +260,7 @@ export default function GroupCalendar({ groupId, userId }) {
     return (
         <div className="flex flex-col md:flex-row gap-6 h-[80vh]">
             {/* Timeline / Calendar List */}
-            <div className="w-full md:w-1/3 bg-white p-4 rounded-3xl shadow-lg overflow-y-auto">
+            <div className="w-full md:w-1/4 bg-white p-4 rounded-3xl shadow-lg overflow-y-auto">
                 <h3 className="text-xl font-bold mb-4 text-gray-800">📅 Cronología</h3>
                 <div className="space-y-4">
                     {pastQuedadas.map(q => (
@@ -255,7 +311,7 @@ export default function GroupCalendar({ groupId, userId }) {
                                         >
                                             <img src={photo.url} alt="Recuerdo" className="w-full h-full object-cover" />
                                             <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {photo.Usuario?.email || 'Anon'}
+                                                {photo.displayName}
                                             </div>
                                             {manageMode && (
                                                 <div className={`absolute top-1 right-1 h-4 w-4 rounded-full border border-white ${photo.es_visible ? 'bg-green-500' : 'bg-gray-400'}`} />
@@ -296,7 +352,7 @@ export default function GroupCalendar({ groupId, userId }) {
                                 <div className="space-y-3 mb-4">
                                     {comments.map(c => (
                                         <div key={c.id} className="bg-gray-50 p-3 rounded-xl rounded-tl-none border border-gray-100">
-                                            <div className="text-xs text-indigo-600 font-bold mb-1">{c.Usuario?.email || 'Anónimo'}</div>
+                                            <div className="text-xs text-indigo-600 font-bold mb-1">{c.displayName}</div>
                                             <p className="text-sm text-gray-900 font-medium">{c.texto}</p>
                                         </div>
                                     ))}
@@ -308,7 +364,7 @@ export default function GroupCalendar({ groupId, userId }) {
                                     <input
                                         type="text"
                                         placeholder="Escribe un recuerdo..."
-                                        className="flex-1 bg-gray-50 border border-gray-200 rounded-lg text-sm px-3 py-2 text-gray-900 focus:ring-2 focus:ring-indigo-500"
+                                        className="flex-1 bg-gray-50 border border-gray-200 rounded-lg text-sm px-3 py-2 text-black font-medium focus:ring-2 focus:ring-indigo-500"
                                         value={newComment}
                                         onChange={e => setNewComment(e.target.value)}
                                     />

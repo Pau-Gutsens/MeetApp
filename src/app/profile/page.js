@@ -10,6 +10,7 @@ export default function ProfilePage() {
     const [loading, setLoading] = useState(true)
     // ... form states ...
     const [bio, setBio] = useState('')
+    const [nombre, setNombre] = useState('')
     const [fechaNac, setFechaNac] = useState('')
     const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState('')
@@ -23,6 +24,7 @@ export default function ProfilePage() {
             const { data } = await supabase.from('Usuario').select('*').eq('id_usuario', session.user.id).single()
             if (data) {
                 setBio(data.bio || '')
+                setNombre(data.nombre || '')
                 setFechaNac(data.fecha_nac || '')
             }
             setLoading(false)
@@ -37,6 +39,7 @@ export default function ProfilePage() {
             await supabase.from('Usuario').upsert({
                 id_usuario: user.id,
                 email: user.email,
+                nombre,
                 bio,
                 fecha_nac: fechaNac || null
             })
@@ -66,14 +69,24 @@ export default function ProfilePage() {
                     <div className="mx-auto h-24 w-24 bg-gray-100 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-4xl mb-4">
                         👤
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-800">{user.email}</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">{nombre || user.email}</h1>
 
                     <form onSubmit={handleSave} className="mt-8 text-left space-y-4">
+                        <div>
+                            <label className="text-sm font-bold text-gray-500 ml-1">Nombre Global</label>
+                            <input
+                                type="text"
+                                className="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-black"
+                                value={nombre}
+                                onChange={e => setNombre(e.target.value)}
+                                placeholder="Tu nombre real o principal..."
+                            />
+                        </div>
                         <div>
                             <label className="text-sm font-bold text-gray-500 ml-1">Fecha Nacimiento</label>
                             <input
                                 type="date"
-                                className="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500"
+                                className="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-black"
                                 value={fechaNac}
                                 onChange={e => setFechaNac(e.target.value)}
                             />
@@ -82,7 +95,7 @@ export default function ProfilePage() {
                             <label className="text-sm font-bold text-gray-500 ml-1">Bio</label>
                             <textarea
                                 rows={3}
-                                className="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 resize-none"
+                                className="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 resize-none text-black"
                                 value={bio}
                                 onChange={e => setBio(e.target.value)}
                                 placeholder="Escribe tu bio..."

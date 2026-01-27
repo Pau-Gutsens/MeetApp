@@ -15,6 +15,7 @@ export default function Dashboard() {
     const [viewMode, setViewMode] = useState('main') // 'main', 'create', 'join', 'requests'
     const [inputName, setInputName] = useState('')
     const [joinCode, setJoinCode] = useState('')
+    const [apodo, setApodo] = useState('')
     const [pendingRequests, setPendingRequests] = useState([])
     const [msg, setMsg] = useState('')
 
@@ -122,12 +123,14 @@ export default function Dashboard() {
         await supabase.from('MiembroGrupo').insert({
             id_usuario: user.id,
             id_grupo: data.id_grupo,
-            rol: 'admin'
+            rol: 'admin',
+            apodo: apodo.trim() || null
         })
 
         await fetchGroups(user.id)
         setViewMode('main')
         setInputName('')
+        setApodo('')
     }
 
     const handleJoinByCode = async () => {
@@ -190,153 +193,138 @@ export default function Dashboard() {
 
 
 
-    if (loading) return <div className="h-screen flex items-center justify-center">Cargando...</div>
+    if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl text-indigo-600 uppercase tracking-tighter animate-pulse">Cargando...</div>
 
     return (
-        <div className="min-h-screen bg-gray-50 relative p-6 font-sans">
+        <div className="min-h-screen bg-gray-50 relative font-sans text-gray-900">
 
-            {/* 1. PROFILE BUTTON: Top Left (Floating) */}
+            {/* 1. PROFILE BUTTON: Top Left */}
             <Link
                 href="/profile"
-                className="absolute top-6 left-6 z-50 bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-transform hover:scale-105"
+                className="fixed top-6 left-6 z-50 bg-white p-3 rounded-full shadow-lg border border-indigo-50 hover:bg-indigo-50 transition-all hover:scale-110"
                 title="Mi Perfil"
             >
-                <div className="h-8 w-8 text-indigo-600">
+                <div className="h-6 w-6 text-indigo-600">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                 </div>
             </Link>
 
             {/* MAIN CONTENT AREA */}
-            <div className="h-full flex flex-col items-center justify-center min-h-[80vh]">
+            <div className="max-w-xl mx-auto pt-24 pb-32 px-6">
 
                 {/* CASE: NO GROUPS OR EXPLICIT CREATE/JOIN MODE */}
                 {(groups.length === 0 || viewMode === 'create' || viewMode === 'join') ? (
-                    <div className="w-full max-w-md space-y-6 text-center animate-fade-in">
-                        <h1 className="text-3xl font-bold text-gray-800 mb-8">
+                    <div className="space-y-6 animate-fade-in">
+                        <h1 className="text-4xl font-black text-gray-900 mb-10 text-center uppercase tracking-tighter">
                             {groups.length === 0 ? 'Bienvenido' : 'Nuevo Grupo'}
                         </h1>
 
-                        {(viewMode === 'main' || groups.length === 0 && viewMode === 'main') && (
+                        {viewMode === 'main' && groups.length === 0 && (
                             <div className="space-y-4">
                                 <button
                                     onClick={() => setViewMode('create')}
-                                    className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all"
+                                    className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-xl shadow-lg hover:bg-indigo-700 transition-all uppercase"
                                 >
                                     Crear Grupo
                                 </button>
                                 <button
                                     onClick={() => { setViewMode('join'); setMsg(''); }}
-                                    className="w-full py-4 bg-white text-indigo-600 border-2 border-indigo-100 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition-all"
+                                    className="w-full py-5 bg-white text-indigo-600 border border-indigo-100 rounded-2xl font-black text-xl shadow-md hover:bg-indigo-50 transition-all uppercase"
                                 >
-                                    Unirse con Código
+                                    Unirse
                                 </button>
                             </div>
                         )}
 
                         {viewMode === 'create' && (
-                            <div className="bg-white p-6 rounded-xl shadow-xl">
-                                <h3 className="text-lg font-bold mb-4 text-gray-900">Nombre del Grupo</h3>
+                            <div className="bg-white p-8 rounded-3xl shadow-xl border-t-8 border-indigo-500">
+                                <h3 className="text-xl font-black mb-4 uppercase text-gray-800">Nombre del Grupo</h3>
                                 <input
-                                    className="w-full border p-3 rounded mb-4 text-gray-900 focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="Ej: Los Viajeros, Familia..."
+                                    className="w-full bg-gray-50 p-4 rounded-xl mb-4 text-lg font-bold text-black border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                                    placeholder="Ej: Los Fotógrafos"
+                                    autoFocus
                                     value={inputName}
                                     onChange={e => setInputName(e.target.value)}
                                 />
-                                {msg && <p className="text-red-600 text-sm mb-2 font-bold">{msg}</p>}
-                                <div className="flex gap-2">
-                                    <button onClick={() => setViewMode('main')} className="flex-1 py-2 text-gray-600 font-bold">Cancelar</button>
-                                    <button onClick={handleCreate} className="flex-1 py-2 bg-indigo-600 text-white rounded font-bold shadow-md">Crear</button>
+                                <h3 className="text-sm font-black mb-2 uppercase text-gray-400">Tu Apodo (Opcional)</h3>
+                                <input
+                                    className="w-full bg-gray-50 p-3 rounded-xl mb-6 text-sm font-bold text-black border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                                    placeholder="Cómo te verán en este grupo..."
+                                    onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                                    value={apodo}
+                                    onChange={e => setApodo(e.target.value)}
+                                />
+                                {msg && <p className="text-red-500 text-xs font-black uppercase mb-4">{msg}</p>}
+                                <div className="flex gap-4">
+                                    <button onClick={() => { setViewMode('main'); setApodo(''); }} className="flex-1 py-3 font-bold text-gray-500 hover:text-black transition-colors uppercase">Cerrar</button>
+                                    <button onClick={handleCreate} className="flex-1 py-3 bg-indigo-600 text-white font-black rounded-xl shadow-lg hover:bg-indigo-700 transition-all uppercase">Crear</button>
                                 </div>
                             </div>
                         )}
 
                         {viewMode === 'join' && (
-                            <div className="bg-white p-6 rounded-xl shadow-xl">
-                                <h3 className="text-lg font-bold mb-4 text-gray-900">Unirse con Código</h3>
+                            <div className="bg-white p-8 rounded-3xl shadow-xl border-t-8 border-indigo-500">
+                                <h3 className="text-xl font-black mb-4 uppercase text-gray-800">Unirse con código</h3>
                                 <input
-                                    className="w-full border p-3 rounded mb-4 text-center font-black text-xl uppercase tracking-widest text-gray-900 focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full bg-gray-50 p-4 rounded-xl mb-6 text-center font-black text-3xl text-black uppercase tracking-widest border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
                                     placeholder="CÓDIGO"
                                     maxLength={6}
+                                    autoFocus
+                                    onKeyDown={(e) => e.key === 'Enter' && handleJoinByCode()}
                                     value={joinCode}
                                     onChange={e => setJoinCode(e.target.value.toUpperCase())}
                                 />
-                                {msg && <p className={`text-sm mb-4 font-bold ${msg.includes('enviada') || msg.includes('aceptada') ? 'text-green-600' : 'text-red-600'}`}>{msg}</p>}
-                                <div className="flex gap-2">
-                                    <button onClick={() => { setViewMode('main'); setMsg(''); }} className="flex-1 py-2 text-gray-600 font-bold">Volver</button>
-                                    <button onClick={handleJoinByCode} className="flex-1 py-2 bg-indigo-600 text-white rounded font-bold shadow-md">Solicitar</button>
+                                {msg && <p className={`text-xs font-black uppercase mb-6 ${msg.includes('enviada') ? 'text-green-600' : 'text-red-500'}`}>{msg}</p>}
+                                <div className="flex gap-4">
+                                    <button onClick={() => { setViewMode('main'); setMsg(''); }} className="flex-1 py-3 font-bold text-gray-500 hover:text-black transition-colors uppercase">Volver</button>
+                                    <button onClick={handleJoinByCode} className="flex-1 py-3 bg-indigo-600 text-white font-black rounded-xl shadow-lg hover:bg-indigo-700 transition-all uppercase">OK</button>
                                 </div>
                             </div>
                         )}
-
-                        {groups.length > 0 && viewMode !== 'main' && (
-                            <button onClick={() => setViewMode('main')} className="mt-4 text-indigo-600 font-bold">Ver mis grupos</button>
-                        )}
                     </div>
                 ) : (
-                    /* CASE: HAS GROUPS -> LIST CARDS */
-                    <div className="w-full max-w-4xl animate-fade-in">
-                        <div className="flex justify-between items-end mb-8">
-                            <div>
-                                <h1 className="text-3xl font-black text-gray-900">Mis Grupos</h1>
-                                <p className="text-gray-500">Selecciona un grupo para entrar</p>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setViewMode('join')}
-                                    className="px-4 py-2 bg-white text-indigo-600 border border-indigo-100 rounded-xl font-bold shadow-sm hover:bg-indigo-50"
-                                >
-                                    Unirse
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('create')}
-                                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold shadow-md hover:bg-indigo-700"
-                                >
-                                    + Nuevo
-                                </button>
-                            </div>
+                    /* CASE: LIST VIEW */
+                    <div className="space-y-6 animate-fade-in">
+                        <div className="mb-10">
+                            <h1 className="text-4xl font-black uppercase tracking-tighter text-gray-900">Mis Grupos</h1>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
                             {groups.map(g => (
                                 <Link
                                     key={g.id_grupo}
                                     href={`/groups?id=${g.id_grupo}`}
-                                    className="bg-white p-6 rounded-3xl shadow-lg border-t-4 border-indigo-500 hover:scale-[1.02] transition-all group"
+                                    className="block bg-white p-6 rounded-2xl shadow-md border-l-4 border-indigo-500 hover:translate-x-1 hover:shadow-lg transition-all group"
                                 >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <h2 className="text-2xl font-black text-gray-800 group-hover:text-indigo-600 transition-colors">{g.nombre}</h2>
-                                        <div className="bg-indigo-50 px-2 py-1 rounded-lg">
-                                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">Código</span>
-                                            <p className="text-xs font-bold text-indigo-600">{g.codigo_invitacion?.toUpperCase()}</p>
+                                    <div className="flex justify-between items-center">
+                                        <h2 className="text-2xl font-black uppercase tracking-tight group-hover:text-indigo-600 transition-colors">{g.nombre}</h2>
+                                        <div className="bg-indigo-50 px-3 py-1 rounded-lg">
+                                            <span className="text-xs font-black text-indigo-600 tracking-widest">{g.codigo_invitacion?.toUpperCase()}</span>
                                         </div>
                                     </div>
-                                    <p className="text-gray-400 text-sm font-medium">Toca para entrar &rarr;</p>
                                 </Link>
                             ))}
                         </div>
 
-                        {/* Global Notifications */}
+                        {/* Notifications section */}
                         {pendingRequests.length > 0 && (
-                            <div className="mt-12">
-                                <h3 className="text-lg font-black text-gray-800 mb-4 flex items-center gap-2">
-                                    <span className="relative flex h-3 w-3">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                                    </span>
-                                    Avisos Pendientes
+                            <div className="mt-16 bg-white p-6 rounded-3xl shadow-lg border border-indigo-50">
+                                <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400 mb-6 flex items-center gap-2">
+                                    <span className="h-2 w-2 bg-indigo-500 rounded-full animate-ping"></span>
+                                    Solicitudes Pendientes
                                 </h3>
                                 <div className="space-y-3">
                                     {pendingRequests.map(req => (
-                                        <div key={req.id} className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100 animate-slide-up">
+                                        <div key={req.id} className="flex items-center justify-between p-3 bg-indigo-50 rounded-xl">
                                             <div>
-                                                <p className="text-xs font-black text-indigo-500 uppercase">{req.Grupo?.nombre}</p>
-                                                <p className="text-sm font-medium text-gray-700">{req.Usuario?.email || 'Usuario'} quiere unirse</p>
+                                                <p className="text-[10px] font-black uppercase text-indigo-400">{req.Grupo?.nombre}</p>
+                                                <p className="text-xs font-bold text-gray-700">{req.Usuario?.email}</p>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button onClick={() => handleRejectRequest(req.id, req.id_grupo)} className="px-3 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg">Rechazar</button>
-                                                <button onClick={() => handleAcceptRequest(req)} className="px-3 py-1 text-xs font-bold text-green-700 bg-green-50 hover:bg-green-100 rounded-lg">Aceptar</button>
+                                                <button onClick={() => handleRejectRequest(req.id, req.id_grupo)} className="px-3 py-1 text-red-600 font-black text-[10px] uppercase hover:bg-red-50 rounded-lg transition-colors">No</button>
+                                                <button onClick={() => handleAcceptRequest(req)} className="px-3 py-1 bg-indigo-600 text-white rounded-lg font-black text-[10px] uppercase shadow-sm hover:bg-indigo-700 transition-all">Sí</button>
                                             </div>
                                         </div>
                                     ))}
@@ -346,6 +334,38 @@ export default function Dashboard() {
                     </div>
                 )}
             </div>
+
+            {/* FLOATING ACTION BUTTON (FAB) */}
+            {viewMode === 'main' && groups.length > 0 && (
+                <div className="fixed bottom-10 right-10 flex flex-col items-end gap-4 z-50">
+                    {showCreateJoin && (
+                        <div className="flex flex-col gap-3 animate-slide-up bg-indigo-600 p-2 rounded-2xl shadow-2xl mb-2">
+                            <button
+                                onClick={() => { setViewMode('join'); setMsg(''); setShowCreateJoin(false); }}
+                                className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-black uppercase text-sm hover:bg-indigo-50 transition-all shadow-sm"
+                            >
+                                Unirse
+                            </button>
+                            <button
+                                onClick={() => { setViewMode('create'); setShowCreateJoin(false); }}
+                                className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-black uppercase text-sm hover:bg-indigo-50 transition-all shadow-sm"
+                            >
+                                Crear
+                            </button>
+                        </div>
+                    )}
+                    <button
+                        onClick={() => setShowCreateJoin(!showCreateJoin)}
+                        className={`h-20 w-20 bg-indigo-600 rounded-full flex items-center justify-center shadow-xl hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all group`}
+                    >
+                        <div className={`h-10 w-10 text-white transition-transform duration-300 ${showCreateJoin ? 'rotate-45' : ''}`}>
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M12 4v16m8-8H4" />
+                            </svg>
+                        </div>
+                    </button>
+                </div>
+            )}
 
         </div>
     )

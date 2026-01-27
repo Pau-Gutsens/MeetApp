@@ -163,22 +163,28 @@ export default function Dashboard() {
     }
 
     const handleAcceptRequest = async (request) => {
-        // 1. Rely on DB Trigger to add user to MiembroGrupo
         const { error } = await supabase
             .from('SolicitudUnion')
             .update({ estado: 'aceptada' })
             .eq('id', request.id)
 
-        if (error) { alert(error.message); return }
+        if (error) {
+            alert(`Error al aceptar: ${error.message}`)
+            return
+        }
         fetchRequests(request.id_grupo)
     }
 
     const handleRejectRequest = async (requestId, groupId) => {
-        await supabase
+        const { error } = await supabase
             .from('SolicitudUnion')
             .update({ estado: 'rechazada' })
             .eq('id', requestId)
 
+        if (error) {
+            alert(`Error al rechazar: ${error.message}`)
+            return
+        }
         fetchRequests(groupId)
     }
 

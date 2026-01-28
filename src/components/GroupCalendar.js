@@ -107,7 +107,7 @@ export default function GroupCalendar({ groupId, userId, initialSelectedId }) {
 
         const filtered = (data || []).filter(q => {
             const endDate = new Date(q.fecha_fin || q.fecha_inicio);
-            return endDate < new Date();
+            return endDate < new Date() && q.estado === 'Realizada';
         });
 
         setPastQuedadas(filtered)

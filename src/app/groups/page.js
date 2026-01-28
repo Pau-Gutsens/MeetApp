@@ -143,8 +143,15 @@ function GroupDetailsContent() {
 
     const handleCreateWrapper = async () => {
         setMsg('')
+        const now = new Date().toISOString().split('T')[0]
+
         if (!formData.nombre || !formData.fecha_inicio) {
             setMsg('Faltan campos obligatorios.')
+            return
+        }
+
+        if (formData.fecha_inicio < now) {
+            setMsg('No puedes crear una quedada en el pasado.')
             return
         }
 
@@ -210,6 +217,28 @@ function GroupDetailsContent() {
         setSelectedQuedada(q)
         setView('details')
         await fetchQuedadaDetails(q.id_quedada)
+    }
+
+    const handleFinalize = async (quedadaId) => {
+        const { error } = await supabase
+            .from('Quedada')
+            .update({ estado: 'Realizada' })
+            .eq('id_quedada', quedadaId)
+
+        if (!error) fetchQuedadas(groupId)
+        else alert(error.message)
+    }
+
+    const handleDiscard = async (quedadaId) => {
+        if (!confirm('¿Seguro que quieres descartar esta propuesta? Se eliminará definitivamente.')) return
+
+        const { error } = await supabase
+            .from('Quedada')
+            .delete()
+            .eq('id_quedada', quedadaId)
+
+        if (!error) fetchQuedadas(groupId)
+        else alert(error.message)
     }
 
     if (loading) return <div className="p-8">Cargando...</div>
@@ -386,27 +415,35 @@ function GroupDetailsContent() {
                                                 {pastMeetings.length > 0 && (
                                                     <div>
                                                         <h2 className="text-xl font-black text-gray-400 mb-4 flex items-center gap-2">
-                                                            🕰️ Quedadas Pasadas
-                                                            <span className="bg-gray-100 text-gray-400 text-[10px] px-2 py-0.5 rounded-full">{pastMeetings.length}</span>
+                                                            🕰️ Pendientes de confirmación
+                                                            <span className="bg-gray-100 text-gray-400 text-[10px] px-2 py-0.5 rounded-full">{pastMeetings.filter(q => q.estado !== 'Realizada').length}</span>
                                                         </h2>
-                                                        <div className="grid gap-3 opacity-70">
-                                                            {pastMeetings.map(q => (
-                                                                <div key={q.id_quedada} className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex justify-between items-center group hover:bg-white transition-all">
-                                                                    <div>
-                                                                        <h4 className="font-bold text-gray-700">{q.nombre}</h4>
-                                                                        <p className="text-xs text-gray-400">Finalizó el {new Date(q.fecha_fin || q.fecha_inicio).toLocaleDateString()}</p>
+                                                        <div className="grid gap-3">
+                                                            {pastMeetings.map(q => {
+                                                                if (q.estado === 'Realizada') return null;
+                                                                return (
+                                                                    <div key={q.id_quedada} className="bg-white p-5 rounded-2xl border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
+                                                                        <div className="flex-1">
+                                                                            <h4 className="font-bold text-gray-700 text-lg">{q.nombre}</h4>
+                                                                            <p className="text-xs text-gray-400 uppercase font-black tracking-widest mt-1">Finalizó el {new Date(q.fecha_fin || q.fecha_inicio).toLocaleDateString()}</p>
+                                                                        </div>
+                                                                        <div className="flex gap-2 w-full md:w-auto">
+                                                                            <button
+                                                                                onClick={() => handleFinalize(q.id_quedada)}
+                                                                                className="flex-1 md:flex-none bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-green-700 transition-all shadow-md"
+                                                                            >
+                                                                                Confirmar (Recuerdos) 📸
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleDiscard(q.id_quedada)}
+                                                                                className="flex-1 md:flex-none bg-gray-100 text-gray-500 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-50 hover:text-red-600 transition-all"
+                                                                            >
+                                                                                Descartar 🗑️
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setSelectedPastId(q.id_quedada);
-                                                                            setActiveTab('recuerdos');
-                                                                        }}
-                                                                        className="bg-white border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-500 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
-                                                                    >
-                                                                        Ver Recuerdos 📸
-                                                                    </button>
-                                                                </div>
-                                                            ))}
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
                                                 )}
@@ -433,11 +470,23 @@ function GroupDetailsContent() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Inicio</label>
-                                            <input type="date" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.fecha_inicio} onChange={e => setFormData({ ...formData, fecha_inicio: e.target.value })} />
+                                            <input
+                                                type="date"
+                                                className="w-full p-3 bg-gray-50 rounded-xl text-black"
+                                                value={formData.fecha_inicio}
+                                                min={new Date().toISOString().split('T')[0]}
+                                                onChange={e => setFormData({ ...formData, fecha_inicio: e.target.value })}
+                                            />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Fin</label>
-                                            <input type="date" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.fecha_fin} onChange={e => setFormData({ ...formData, fecha_fin: e.target.value })} />
+                                            <input
+                                                type="date"
+                                                className="w-full p-3 bg-gray-50 rounded-xl text-black"
+                                                value={formData.fecha_fin}
+                                                min={formData.fecha_inicio || new Date().toISOString().split('T')[0]}
+                                                onChange={e => setFormData({ ...formData, fecha_fin: e.target.value })}
+                                            />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">

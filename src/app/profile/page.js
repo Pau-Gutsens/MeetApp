@@ -64,7 +64,7 @@ export default function ProfilePage() {
                 <div className="absolute inset-0 opacity-30 bg-gradient-to-r from-purple-500 to-indigo-500"></div>
             </div>
 
-            <div className="max-w-xl mx-auto px-4 -mt-24 relative z-10">
+            <div className="max-w-3xl mx-auto px-4 -mt-24 relative z-10">
                 <div className="bg-white rounded-3xl shadow-xl p-8 text-center">
                     <div className="mx-auto h-24 w-24 bg-gray-100 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-4xl mb-4">
                         👤

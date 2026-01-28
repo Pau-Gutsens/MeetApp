@@ -229,7 +229,7 @@ function GroupDetailsContent() {
                 </div>
             </Link>
 
-            <div className="max-w-7xl mx-auto pt-16">
+            <div className="max-w-full mx-auto pt-16 px-6 lg:px-12">
 
                 {/* Header & Tabs */}
                 <div className="mb-8">
@@ -380,11 +380,11 @@ function GroupDetailsContent() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Inicio</label>
-                                            <input type="datetime-local" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.fecha_inicio} onChange={e => setFormData({ ...formData, fecha_inicio: e.target.value })} />
+                                            <input type="date" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.fecha_inicio} onChange={e => setFormData({ ...formData, fecha_inicio: e.target.value })} />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Fin</label>
-                                            <input type="datetime-local" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.fecha_fin} onChange={e => setFormData({ ...formData, fecha_fin: e.target.value })} />
+                                            <input type="date" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.fecha_fin} onChange={e => setFormData({ ...formData, fecha_fin: e.target.value })} />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">

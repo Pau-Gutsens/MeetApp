@@ -7,6 +7,12 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
     const [allParticipations, setAllParticipations] = useState([])
     const [saving, setSaving] = useState(false)
 
+    // Dragging state
+    const [isDragging, setIsDragging] = useState(false)
+    const [dragStart, setDragStart] = useState(null) // { dayIdx, hourIdx }
+    const [dragEnd, setDragEnd] = useState(null)     // { dayIdx, hourIdx }
+    const [isSelecting, setIsSelecting] = useState(true)
+
     // Generate slots
     const start = new Date(quedada.fecha_inicio)
     const end = new Date(quedada.fecha_fin || new Date(start.getTime() + 4 * 60 * 60 * 1000)) // Fallback 4h
@@ -22,7 +28,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
         current.setDate(current.getDate() + 1)
     }
 
-    const hours = Array.from({ length: 15 }, (_, i) => i + 8) // 8:00 to 22:00
+    const hours = Array.from({ length: 24 }, (_, i) => i) // 0:00 to 23:00
 
     useEffect(() => {
         fetchAvailability()
@@ -61,6 +67,61 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
             prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]
         )
     }
+
+    const handleMouseDown = (dayIdx, hourIdx, day, hour) => {
+        const slot = `${day.toISOString().split('T')[0]}T${hour.toString().padStart(2, '0')}:00:00`
+        const alreadySelected = myAvailability.includes(slot)
+
+        setIsDragging(true)
+        setDragStart({ dayIdx, hourIdx })
+        setDragEnd({ dayIdx, hourIdx })
+        setIsSelecting(!alreadySelected)
+    }
+
+    const handleMouseEnter = (dayIdx, hourIdx) => {
+        if (isDragging) {
+            setDragEnd({ dayIdx, hourIdx })
+        }
+    }
+
+    const handleMouseUp = () => {
+        if (!isDragging) return
+
+        // Calculate final selection from range
+        const startDay = Math.min(dragStart.dayIdx, dragEnd.dayIdx)
+        const endDay = Math.max(dragStart.dayIdx, dragEnd.dayIdx)
+        const startHour = Math.min(dragStart.hourIdx, dragEnd.hourIdx)
+        const endHour = Math.max(dragStart.hourIdx, dragEnd.hourIdx)
+
+        const slotsInRange = []
+        for (let d = startDay; d <= endDay; d++) {
+            const dateStr = days[d].toISOString().split('T')[0]
+            for (let h = startHour; h <= endHour; h++) {
+                const hourVal = hours[h]
+                slotsInRange.push(`${dateStr}T${hourVal.toString().padStart(2, '0')}:00:00`)
+            }
+        }
+
+        setMyAvailability(prev => {
+            if (isSelecting) {
+                return [...new Set([...prev, ...slotsInRange])]
+            } else {
+                return prev.filter(s => !slotsInRange.includes(s))
+            }
+        })
+
+        setIsDragging(false)
+        setDragStart(null)
+        setDragEnd(null)
+    }
+
+    // Add global mouse up listener to handle releases outside the grid
+    useEffect(() => {
+        if (isDragging) {
+            window.addEventListener('mouseup', handleMouseUp)
+            return () => window.removeEventListener('mouseup', handleMouseUp)
+        }
+    }, [isDragging, dragStart, dragEnd, isSelecting])
 
     const toggleAllDay = (day) => {
         const dateStr = day.toISOString().split('T')[0]
@@ -165,9 +226,24 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                                     </button>
                                     <div className="text-sm font-black text-gray-400">{h}:00</div>
                                 </div>
-                                {days.map(d => {
+                                {days.map((d, dIdx) => {
+                                    const hIdx = hours.indexOf(h)
                                     const slot = `${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`
+
+                                    // Check if this slot is in the current drag range
+                                    let isInDragRange = false
+                                    if (isDragging && dragStart && dragEnd) {
+                                        const minD = Math.min(dragStart.dayIdx, dragEnd.dayIdx)
+                                        const maxD = Math.max(dragStart.dayIdx, dragEnd.dayIdx)
+                                        const minH = Math.min(dragStart.hourIdx, dragEnd.hourIdx)
+                                        const maxH = Math.max(dragStart.hourIdx, dragEnd.hourIdx)
+
+                                        isInDragRange = dIdx >= minD && dIdx <= maxD && hIdx >= minH && hIdx <= maxH
+                                    }
+
                                     const isSelected = myAvailability.includes(slot)
+                                    const effectivelySelected = isInDragRange ? isSelecting : isSelected
+
                                     const slotParticipants = allParticipations.filter(p => p.disponibilidad?.includes(slot))
                                     const count = slotParticipants.length
                                     const total = allParticipations.length || 1
@@ -178,18 +254,27 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                                     return (
                                         <div
                                             key={slot}
-                                            onClick={() => toggleSlot(d, h)}
-                                            className={`h-20 w-full rounded-2xl cursor-pointer transition-all border-2 ${isSelected ? 'border-green-600 ring-8 ring-green-50 shadow-lg scale-[1.02]' : 'border-gray-100 hover:border-gray-200 shadow-sm'
+                                            onMouseDown={() => handleMouseDown(dIdx, hIdx, d, h)}
+                                            onMouseEnter={() => handleMouseEnter(dIdx, hIdx)}
+                                            className={`h-20 w-full rounded-2xl cursor-pointer transition-all border-2 select-none ${effectivelySelected ? 'border-green-600 ring-8 ring-green-50 shadow-lg scale-[1.02]' : 'border-gray-100 hover:border-gray-200 shadow-sm'
                                                 }`}
                                             style={{
-                                                backgroundColor: isSelected
+                                                backgroundColor: effectivelySelected
                                                     ? '#22c55e'
                                                     : count > 0
                                                         ? `rgba(34, 197, 94, ${0.1 + (count / total) * 0.8})`
                                                         : '#F9FAFB'
                                             }}
                                             title={count > 0 ? `Asisten: ${names}` : 'Nadie disponible'}
-                                        />
+                                        >
+                                            {count > 0 && (
+                                                <div className="flex items-center justify-center h-full">
+                                                    <span className={`text-xs font-black ${effectivelySelected ? 'text-white' : 'text-green-700'}`}>
+                                                        {count}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     )
                                 })}
                             </div>

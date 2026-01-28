@@ -212,7 +212,7 @@ export default function Dashboard() {
             </Link>
 
             {/* MAIN CONTENT AREA */}
-            <div className="max-w-xl mx-auto pt-24 pb-32 px-6">
+            <div className="max-w-full mx-auto pt-24 pb-32 px-6 lg:px-12">
 
                 {/* CASE: NO GROUPS OR EXPLICIT CREATE/JOIN MODE */}
                 {(groups.length === 0 || viewMode === 'create' || viewMode === 'join') ? (

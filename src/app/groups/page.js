@@ -6,6 +6,21 @@ import Link from 'next/link'
 import GroupCalendar from '@/components/GroupCalendar'
 import AvailabilityPicker from '@/components/AvailabilityPicker'
 
+const formatProposal = (proposal, description) => {
+    return `__PROPOSAL__:${JSON.stringify(proposal)}__DESC__:${description}`
+}
+
+const parseProposal = (rawDescription) => {
+    if (!rawDescription?.startsWith('__PROPOSAL__:')) return { proposal: null, description: rawDescription }
+    try {
+        const parts = rawDescription.split('__DESC__:')
+        const proposal = JSON.parse(parts[0].replace('__PROPOSAL__:', ''))
+        return { proposal, description: parts[1] || '' }
+    } catch (e) {
+        return { proposal: null, description: rawDescription }
+    }
+}
+
 function GroupDetailsContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -13,30 +28,29 @@ function GroupDetailsContent() {
     const [user, setUser] = useState(null)
     const [group, setGroup] = useState(null)
     const [quedadas, setQuedadas] = useState([])
+    const [formData, setFormData] = useState({
+        nombre: '',
+        descripcion: '',
+        rango_inicio: '',
+        rango_fin: '',
+        propuesta_inicio: '',
+        propuesta_fin: '',
+        aforo_min: 1,
+        aforo_max: 10
+    })
+    const [msg, setMsg] = useState('')
     const [loading, setLoading] = useState(true)
-
-    // UI States
     const [view, setView] = useState('list') // 'list', 'create', 'details'
     const [activeTab, setActiveTab] = useState('quedadas') // 'quedadas', 'recuerdos'
     const [selectedQuedada, setSelectedQuedada] = useState(null)
     const [quedadaParticipants, setQuedadaParticipants] = useState([])
     const [isParticipant, setIsParticipant] = useState(false)
     const [proponentName, setProponentName] = useState('')
+    const [selectedProposal, setSelectedProposal] = useState(null)
     const [selectedPastId, setSelectedPastId] = useState(null) // ID to auto-select in Recuerdos
     const [myMembership, setMyMembership] = useState(null)
     const [myApodo, setMyApodo] = useState('')
     const [isEditingApodo, setIsEditingApodo] = useState(false)
-
-    // Create Form
-    const [formData, setFormData] = useState({
-        nombre: '',
-        descripcion: '',
-        fecha_inicio: '',
-        fecha_fin: '',
-        aforo_min: 1,
-        aforo_max: 10
-    })
-    const [msg, setMsg] = useState('')
 
     useEffect(() => {
         loadData()
@@ -110,6 +124,14 @@ function GroupDetailsContent() {
         return () => { supabase.removeChannel(channel) }
     }, [group, selectedQuedada])
 
+    const selectQuedada = async (q) => {
+        const { proposal, description } = parseProposal(q.descripcion)
+        setSelectedQuedada({ ...q, rawDescription: q.descripcion, description })
+        setSelectedProposal(proposal)
+        setView('details')
+        await fetchQuedadaDetails(q.id_quedada)
+    }
+
     const fetchQuedadaDetails = async (quedadaId) => {
         // Reset proponent name for new selection
         setProponentName('')
@@ -153,28 +175,37 @@ function GroupDetailsContent() {
         setMsg('')
         const now = new Date()
 
-        if (!formData.nombre || !formData.fecha_inicio) {
+        if (!formData.nombre || !formData.rango_inicio || !formData.propuesta_inicio) {
             setMsg('Faltan campos obligatorios.')
             return
         }
 
-        if (new Date(formData.fecha_inicio) < now) {
-            setMsg('No puedes crear una quedada en el pasado.')
+        if (new Date(formData.rango_inicio) < now.setHours(0, 0, 0, 0)) {
+            setMsg('No puedes crear una quedada con una fecha de inicio pasada.')
             return
         }
 
         try {
-            const finalInicio = new Date(formData.fecha_inicio).toISOString()
-            const finalFin = formData.fecha_fin ? new Date(formData.fecha_fin).toISOString() : finalInicio
+            // Range (Full days for voting grid)
+            const rangingStart = new Date(formData.rango_inicio)
+            rangingStart.setHours(0, 0, 0, 0)
+            const rangingEnd = new Date(formData.rango_fin || formData.rango_inicio)
+            rangingEnd.setHours(23, 59, 59, 999)
+
+            // Suggestion (Specific point)
+            const proposal = {
+                start: new Date(formData.propuesta_inicio).toISOString(),
+                end: new Date(formData.propuesta_fin || formData.propuesta_inicio).toISOString()
+            }
 
             const { data, error } = await supabase.from('Quedada').insert({
                 id_grupo: group.id_grupo,
                 nombre: formData.nombre,
-                descripcion: formData.descripcion,
+                descripcion: formatProposal(proposal, formData.descripcion),
                 aforo_min: formData.aforo_min,
                 aforo_max: formData.aforo_max,
-                fecha_inicio: finalInicio,
-                fecha_fin: finalFin,
+                fecha_inicio: rangingStart.toISOString(),
+                fecha_fin: rangingEnd.toISOString(),
                 estado: 'Propuesta'
             }).select().single()
 
@@ -190,7 +221,7 @@ function GroupDetailsContent() {
             await fetchQuedadas(group.id_grupo)
             // Open the grid immediately for the new plan
             selectQuedada(data)
-            setFormData({ nombre: '', descripcion: '', fecha_inicio: '', fecha_fin: '', aforo_min: 1, aforo_max: 10 })
+            setFormData({ nombre: '', descripcion: '', rango_inicio: '', rango_fin: '', propuesta_inicio: '', propuesta_fin: '', aforo_min: 1, aforo_max: 10 })
         } catch (e) { setMsg(e.message) }
     }
 
@@ -227,12 +258,6 @@ function GroupDetailsContent() {
                 await fetchQuedadaDetails(quedada.id_quedada)
             }
         } catch (e) { alert(e.message) }
-    }
-
-    const selectQuedada = async (q) => {
-        setSelectedQuedada(q)
-        setView('details')
-        await fetchQuedadaDetails(q.id_quedada)
     }
 
     const handleFinalize = async (quedadaId) => {
@@ -401,8 +426,8 @@ function GroupDetailsContent() {
                                                                                     {q.estado}
                                                                                 </span>
                                                                             </div>
-                                                                            <p className="text-gray-500 text-sm font-medium">📅 {new Date(q.fecha_inicio).toLocaleString()}</p>
-                                                                            <p className="text-gray-400 text-xs mt-1 line-clamp-1">{q.descripcion}</p>
+                                                                            <p className="text-gray-500 text-sm font-medium">📅 {new Date(q.fecha_inicio).toLocaleDateString()}</p>
+                                                                            <p className="text-gray-400 text-xs mt-1 line-clamp-1">{parseProposal(q.descripcion).description}</p>
                                                                         </div>
 
                                                                         <div className="flex items-center gap-2 w-full md:w-auto">
@@ -492,28 +517,66 @@ function GroupDetailsContent() {
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Descripción</label>
                                         <textarea className="w-full p-3 bg-gray-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-black text-gray-900" value={formData.descripcion} onChange={e => setFormData({ ...formData, descripcion: e.target.value })} placeholder="Detalles del plan..." />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Inicio (Día y Hora)</label>
-                                            <input
-                                                type="datetime-local"
-                                                className="w-full p-3 bg-gray-50 rounded-xl text-black"
-                                                value={formData.fecha_inicio}
-                                                min={new Date().toISOString().slice(0, 16)}
-                                                onChange={e => setFormData({ ...formData, fecha_inicio: e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Fin (Día y Hora)</label>
-                                            <input
-                                                type="datetime-local"
-                                                className="w-full p-3 bg-gray-50 rounded-xl text-black"
-                                                value={formData.fecha_fin}
-                                                min={formData.fecha_inicio || new Date().toISOString().slice(0, 16)}
-                                                onChange={e => setFormData({ ...formData, fecha_fin: e.target.value })}
-                                            />
+                                    <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100">
+                                        <h3 className="text-sm font-black text-indigo-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            📅 Rango de Disponibilidad
+                                            <span className="text-[10px] font-normal lowercase bg-indigo-100 text-indigo-500 px-2 py-0.5 rounded-full">Días para los que se puede votar</span>
+                                        </h3>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-black text-indigo-400 uppercase mb-1">Día Inicio</label>
+                                                <input
+                                                    type="date"
+                                                    className="w-full p-3 bg-white rounded-xl text-black border border-indigo-100 focus:ring-2 focus:ring-indigo-600"
+                                                    value={formData.rango_inicio}
+                                                    min={new Date().toISOString().split('T')[0]}
+                                                    onChange={e => setFormData({ ...formData, rango_inicio: e.target.value })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-indigo-400 uppercase mb-1">Día Fin</label>
+                                                <input
+                                                    type="date"
+                                                    className="w-full p-3 bg-white rounded-xl text-black border border-indigo-100 focus:ring-2 focus:ring-indigo-600"
+                                                    value={formData.rango_fin}
+                                                    min={formData.rango_inicio || new Date().toISOString().split('T')[0]}
+                                                    onChange={e => setFormData({ ...formData, rango_fin: e.target.value })}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
+
+                                    <div className="bg-green-50 p-6 rounded-2xl border border-green-100">
+                                        <h3 className="text-sm font-black text-green-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            🎯 Tu Propuesta Específica
+                                            <span className="text-[10px] font-normal lowercase bg-green-100 text-green-500 px-2 py-0.5 rounded-full">Día y hora ideal</span>
+                                        </h3>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-black text-green-400 uppercase mb-1">Sugerencia Inicio</label>
+                                                <input
+                                                    type="datetime-local"
+                                                    className="w-full p-3 bg-white rounded-xl text-black border border-green-100 focus:ring-2 focus:ring-green-600"
+                                                    value={formData.propuesta_inicio}
+                                                    min={formData.rango_inicio ? `${formData.rango_inicio}T00:00` : new Date().toISOString().slice(0, 16)}
+                                                    max={formData.rango_fin ? `${formData.rango_fin}T23:59` : undefined}
+                                                    onChange={e => setFormData({ ...formData, propuesta_inicio: e.target.value })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-green-400 uppercase mb-1">Sugerencia Fin</label>
+                                                <input
+                                                    type="datetime-local"
+                                                    className="w-full p-3 bg-white rounded-xl text-black border border-green-100 focus:ring-2 focus:ring-green-600"
+                                                    value={formData.propuesta_fin}
+                                                    min={formData.propuesta_inicio || new Date().toISOString().slice(0, 16)}
+                                                    max={formData.rango_fin ? `${formData.rango_fin}T23:59` : undefined}
+                                                    onChange={e => setFormData({ ...formData, propuesta_fin: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Aforo Mín</label>
@@ -566,18 +629,24 @@ function GroupDetailsContent() {
                                                     <p className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Creador del plan</p>
                                                 </div>
                                             </div>
-                                            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50">
-                                                <p className="text-sm font-bold text-indigo-900 mb-2 flex items-center gap-2">
-                                                    📅 Cuándo
+                                            <div className="bg-green-50/50 p-4 rounded-xl border border-green-100/50">
+                                                <p className="text-sm font-bold text-green-900 mb-2 flex items-center gap-2">
+                                                    🎯 Horario Sugerido
                                                 </p>
                                                 <div className="space-y-1">
-                                                    <p className="text-sm text-indigo-700">
-                                                        <span className="font-black">Del:</span> {new Date(selectedQuedada.fecha_inicio).toLocaleString()}
+                                                    <p className="text-sm text-green-700">
+                                                        <span className="font-black">Del:</span> {selectedProposal ? new Date(selectedProposal.start).toLocaleString() : 'No especificado'}
                                                     </p>
-                                                    <p className="text-sm text-indigo-700">
-                                                        <span className="font-black">Al:</span> {new Date(selectedQuedada.fecha_fin).toLocaleString()}
+                                                    <p className="text-sm text-green-700">
+                                                        <span className="font-black">Al:</span> {selectedProposal ? new Date(selectedProposal.end).toLocaleString() : 'No especificado'}
                                                     </p>
                                                 </div>
+                                            </div>
+                                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Rango de Votación</p>
+                                                <p className="text-xs text-gray-500">
+                                                    El grupo puede votar disponibilidad entre el <strong>{new Date(selectedQuedada.fecha_inicio).toLocaleDateString()}</strong> y el <strong>{new Date(selectedQuedada.fecha_fin).toLocaleDateString()}</strong>.
+                                                </p>
                                             </div>
                                         </div>
 

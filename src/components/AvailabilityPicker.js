@@ -183,6 +183,33 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
 
             <p className="text-sm text-gray-500 mb-6">Marca las horas en las que puedes quedar. Los colores oscuros muestran dónde coincidís más.</p>
 
+            {/* Legend */}
+            <div className="mb-6 flex flex-wrap items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ocupación:</span>
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 rounded-md bg-[#F9FAFB] border border-gray-200"></div>
+                        <span className="text-[10px] font-bold text-gray-500">Nadie</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 rounded-md bg-[#dcfce7] border border-green-100"></div>
+                        <span className="text-[10px] font-bold text-gray-500">Pocos</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 rounded-md bg-[#86efac]"></div>
+                        <span className="text-[10px] font-bold text-gray-500">Mitad</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 rounded-md bg-[#22c55e]"></div>
+                        <span className="text-[10px] font-bold text-gray-500">Mayoría</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 rounded-md bg-[#15803d]"></div>
+                        <span className="text-[10px] font-bold text-gray-500">Todos</span>
+                    </div>
+                </div>
+            </div>
+
             <div className="overflow-x-auto pb-4">
                 <div className="grid gap-3 w-full min-w-max" style={{ gridTemplateColumns: `auto repeat(${days.length}, 1fr)` }}>
                     {/* Header: Days */}
@@ -262,7 +289,9 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                                                 backgroundColor: effectivelySelected
                                                     ? '#22c55e'
                                                     : count > 0
-                                                        ? `rgba(34, 197, 94, ${0.1 + (count / total) * 0.8})`
+                                                        ? count === total
+                                                            ? '#15803d' // Dark green for 100%
+                                                            : `rgba(34, 197, 94, ${0.05 + (count / total) * 0.85})` // Refined range
                                                         : '#F9FAFB'
                                             }}
                                             title={count > 0 ? `Asisten: ${names}` : 'Nadie disponible'}

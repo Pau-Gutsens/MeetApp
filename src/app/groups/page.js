@@ -156,9 +156,27 @@ function GroupDetailsContent() {
         }
 
         try {
+            const nowLocal = new Date()
+            const [y1, m1, d1] = formData.fecha_inicio.split('-').map(Number)
+            const [y2, m2, d2] = (formData.fecha_fin || formData.fecha_inicio).split('-').map(Number)
+
+            const startObj = new Date(y1, m1 - 1, d1)
+            const endObj = new Date(y2, m2 - 1, d2)
+
+            const todayStr = nowLocal.getFullYear() + '-' + String(nowLocal.getMonth() + 1).padStart(2, '0') + '-' + String(nowLocal.getDate()).padStart(2, '0')
+
+            if (formData.fecha_inicio === todayStr) {
+                startObj.setHours(nowLocal.getHours(), nowLocal.getMinutes(), nowLocal.getSeconds())
+            } else {
+                startObj.setHours(0, 0, 0, 0)
+            }
+            endObj.setHours(23, 59, 59, 999)
+
             const { data, error } = await supabase.from('Quedada').insert({
                 id_grupo: group.id_grupo,
                 ...formData,
+                fecha_inicio: startObj.toISOString(),
+                fecha_fin: endObj.toISOString(),
                 estado: 'Propuesta'
             }).select().single()
 

@@ -28,7 +28,13 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
         current.setDate(current.getDate() + 1)
     }
 
-    const hours = Array.from({ length: 24 }, (_, i) => i) // 0:00 to 23:00
+    // Dynamic hour range
+    const hours = []
+    const hStart = days.length === 1 ? start.getHours() : 0
+    const hEnd = days.length === 1 ? end.getHours() : 23
+    for (let i = hStart; i <= hEnd; i++) {
+        hours.push(i)
+    }
 
     useEffect(() => {
         fetchAvailability()

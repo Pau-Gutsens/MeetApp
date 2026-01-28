@@ -614,7 +614,7 @@ function GroupDetailsContent() {
                                 </div>
 
                                 <div className="prose max-w-none text-gray-600 mb-8 bg-gray-50 p-6 rounded-2xl">
-                                    {selectedQuedada.descripcion || "Sin descripción."}
+                                    {selectedQuedada.description || "Sin descripción."}
                                 </div>
 
                                 <div className="flex flex-col md:flex-row gap-8">
@@ -660,7 +660,7 @@ function GroupDetailsContent() {
                                                                 {(p.displayName || p.Usuario?.nombre || p.Usuario?.email || '?')[0].toUpperCase()}
                                                             </div>
                                                             <span className="text-sm font-medium text-gray-700">
-                                                                {p.displayName || p.Usuario?.nombre || p.Usuario?.email || 'Anónimo'} {p.id_usuario === user.id && '(Tú)'}
+                                                                {p.displayName || p.Usuario?.nombre || p.Usuario?.email || 'Anónimo'} {p.id_usuario === user.id ? '(Tú)' : ''}
                                                             </span>
                                                         </div>
                                                         <span className="text-[10px] px-2 py-1 bg-white border border-gray-200 rounded-full font-bold text-gray-500 uppercase tracking-wider">

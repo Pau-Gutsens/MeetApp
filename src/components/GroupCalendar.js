@@ -2,6 +2,17 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
+const parseProposal = (rawDescription) => {
+    if (!rawDescription?.startsWith('__PROPOSAL__:')) return { proposal: null, description: rawDescription }
+    try {
+        const parts = rawDescription.split('__DESC__:')
+        const proposal = JSON.parse(parts[0].replace('__PROPOSAL__:', ''))
+        return { proposal, description: parts[1] || '' }
+    } catch (e) {
+        return { proposal: null, description: rawDescription }
+    }
+}
+
 export default function GroupCalendar({ groupId, userId, initialSelectedId }) {
     const [pastQuedadas, setPastQuedadas] = useState([])
     const [selectedQuedada, setSelectedQuedada] = useState(null)
@@ -301,7 +312,7 @@ export default function GroupCalendar({ groupId, userId, initialSelectedId }) {
                 {selectedQuedada ? (
                     <div className="flex flex-col h-full">
                         <h2 className="text-2xl font-black mb-1">{selectedQuedada.nombre}</h2>
-                        <p className="text-gray-500 mb-6">{selectedQuedada.descripcion}</p>
+                        <p className="text-gray-500 mb-6">{parseProposal(selectedQuedada.descripcion).description}</p>
 
                         <div className="flex-1 overflow-y-auto pr-2 space-y-8">
 

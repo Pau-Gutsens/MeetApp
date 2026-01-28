@@ -174,6 +174,32 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
         return allParticipations.filter(p => p.disponibilidad?.includes(slot)).length
     }
 
+    const getColorForOccupancy = (count, total) => {
+        if (count === 0) return '#F9FAFB'
+        if (count === total) return '#15803d'
+        return `rgba(34, 197, 94, ${0.05 + (count / total) * 0.85})`
+    }
+
+    const getMaxOccupancyForDay = (day) => {
+        const dateStr = day.toISOString().split('T')[0]
+        const daySlots = hours.map(h => `${dateStr}T${h.toString().padStart(2, '0')}:00:00`)
+        const maxVotes = daySlots.reduce((acc, slot) => {
+            const count = allParticipations.filter(p => p.disponibilidad?.includes(slot)).length
+            return Math.max(acc, count)
+        }, 0)
+        return maxVotes
+    }
+
+    const getMaxOccupancyForHour = (hour) => {
+        const hourStr = hour.toString().padStart(2, '0')
+        const hourSlots = days.map(d => `${d.toISOString().split('T')[0]}T${hourStr}:00:00`)
+        const maxVotes = hourSlots.reduce((acc, slot) => {
+            const count = allParticipations.filter(p => p.disponibilidad?.includes(slot)).length
+            return Math.max(acc, count)
+        }, 0)
+        return maxVotes
+    }
+
     return (
         <div className="mt-8 bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
             <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
@@ -210,11 +236,11 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                 </div>
             </div>
 
-            <div className="overflow-x-auto pb-4">
-                <div className="grid gap-3 w-full min-w-max" style={{ gridTemplateColumns: `auto repeat(${days.length}, 1fr)` }}>
+            <div className="overflow-x-auto pb-4 custom-scrollbar">
+                <div className="grid gap-3 w-full min-w-max" style={{ gridTemplateColumns: `auto repeat(${days.length}, minmax(130px, 1fr))` }}>
                     {/* Header: Days */}
                     <div />
-                    {days.map(d => (
+                    {days.map((d, dIdx) => (
                         <div key={d.toISOString()} className="flex flex-col items-center gap-1 min-w-[60px]">
                             <div className="text-xs font-black text-indigo-400 uppercase tracking-tighter">
                                 {d.toLocaleDateString('es-ES', { weekday: 'short' })}
@@ -223,92 +249,108 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                             <button
                                 onClick={() => toggleAllDay(d)}
                                 title="Seleccionar/Deseleccionar todo el día"
-                                className="p-2 hover:bg-indigo-50 rounded-full transition-colors"
+                                className="p-2 rounded-xl transition-all border border-gray-100 shadow-sm hover:scale-105"
+                                style={{
+                                    backgroundColor: getColorForOccupancy(getMaxOccupancyForDay(d), allParticipations.length || 1)
+                                }}
                             >
-                                <div className={`h-6 w-6 ${hours.every(h => myAvailability.includes(`${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`)) ? 'text-green-600' : 'text-gray-300'}`}>
-                                    <svg fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                    </svg>
+                                <div className="flex items-center gap-1.5 px-1">
+                                    <div className={`h-5 w-5 ${hours.every(h => myAvailability.includes(`${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`)) ? 'text-green-600' : 'text-gray-300'}`}>
+                                        <svg fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    {getMaxOccupancyForDay(d) > 0 && (
+                                        <span className={`text-[10px] font-black ${getMaxOccupancyForDay(d) === (allParticipations.length || 1) ? 'text-white' : 'text-green-800'}`}>
+                                            {getMaxOccupancyForDay(d)}
+                                        </span>
+                                    )}
                                 </div>
                             </button>
                         </div>
-                    ))}
+                    ))
+                    }
 
                     {/* Rows: Hours */}
-                    {hours.map(h => {
-                        const allSelected = days.every(d => myAvailability.includes(`${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`))
-                        return (
-                            <div key={h} className="contents">
-                                <div className="flex items-center gap-2 pr-4 min-w-[80px]">
-                                    <button
-                                        onClick={() => toggleAllHour(h)}
-                                        title="Seleccionar/Deseleccionar toda la hora"
-                                        className="p-2 hover:bg-indigo-50 rounded-full transition-colors"
-                                    >
-                                        <div className={`h-5 w-5 ${allSelected ? 'text-green-600' : 'text-gray-300'}`}>
-                                            <svg fill="currentColor" viewBox="0 0 20 20">
-                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                            </svg>
-                                        </div>
-                                    </button>
-                                    <div className="text-sm font-black text-gray-400">{h}:00</div>
-                                </div>
-                                {days.map((d, dIdx) => {
-                                    const hIdx = hours.indexOf(h)
-                                    const slot = `${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`
-
-                                    // Check if this slot is in the current drag range
-                                    let isInDragRange = false
-                                    if (isDragging && dragStart && dragEnd) {
-                                        const minD = Math.min(dragStart.dayIdx, dragEnd.dayIdx)
-                                        const maxD = Math.max(dragStart.dayIdx, dragEnd.dayIdx)
-                                        const minH = Math.min(dragStart.hourIdx, dragEnd.hourIdx)
-                                        const maxH = Math.max(dragStart.hourIdx, dragEnd.hourIdx)
-
-                                        isInDragRange = dIdx >= minD && dIdx <= maxD && hIdx >= minH && hIdx <= maxH
-                                    }
-
-                                    const isSelected = myAvailability.includes(slot)
-                                    const effectivelySelected = isInDragRange ? isSelecting : isSelected
-
-                                    const slotParticipants = allParticipations.filter(p => p.disponibilidad?.includes(slot))
-                                    const count = slotParticipants.length
-                                    const total = allParticipations.length || 1
-
-                                    // Get names for tooltip
-                                    const names = slotParticipants.map(p => p.displayName).join(', ')
-
-                                    return (
-                                        <div
-                                            key={slot}
-                                            onMouseDown={() => handleMouseDown(dIdx, hIdx, d, h)}
-                                            onMouseEnter={() => handleMouseEnter(dIdx, hIdx)}
-                                            className={`h-20 w-full rounded-2xl cursor-pointer transition-all border-2 select-none ${effectivelySelected ? 'border-green-600 ring-8 ring-green-50 shadow-lg scale-[1.02]' : 'border-gray-100 hover:border-gray-200 shadow-sm'
-                                                }`}
+                    {
+                        hours.map(h => {
+                            const allSelected = days.every(d => myAvailability.includes(`${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`))
+                            const maxOcc = getMaxOccupancyForHour(h)
+                            return (
+                                <div key={h} className="contents">
+                                    <div className="flex items-center gap-2 pr-4 min-w-[80px]">
+                                        <button
+                                            onClick={() => toggleAllHour(h)}
+                                            title="Seleccionar/Deseleccionar toda la hora"
+                                            className="p-2 rounded-xl transition-all border border-gray-100 shadow-sm hover:scale-105"
                                             style={{
-                                                backgroundColor: effectivelySelected
-                                                    ? '#22c55e'
-                                                    : count > 0
-                                                        ? count === total
-                                                            ? '#15803d' // Dark green for 100%
-                                                            : `rgba(34, 197, 94, ${0.05 + (count / total) * 0.85})` // Refined range
-                                                        : '#F9FAFB'
+                                                backgroundColor: getColorForOccupancy(maxOcc, allParticipations.length || 1)
                                             }}
-                                            title={count > 0 ? `Asisten: ${names}` : 'Nadie disponible'}
                                         >
-                                            {count > 0 && (
-                                                <div className="flex items-center justify-center h-full">
-                                                    <span className={`text-xs font-black ${effectivelySelected ? 'text-white' : 'text-green-700'}`}>
+                                            <div className="flex items-center gap-1.5 px-0.5">
+                                                <div className={`h-4 w-4 ${allSelected ? 'text-green-600' : 'text-gray-300'}`}>
+                                                    <svg fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                {maxOcc > 0 && (
+                                                    <span className={`text-[9px] font-black ${maxOcc === (allParticipations.length || 1) ? 'text-white' : 'text-green-800'}`}>
+                                                        {maxOcc}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </button>
+                                        <div className="text-sm font-black text-gray-400">{h}:00</div>
+                                    </div>
+                                    {days.map((d, dIdx) => {
+                                        const hIdx = hours.indexOf(h)
+                                        const slot = `${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`
+
+                                        // Check if this slot is in the current drag range
+                                        let isInDragRange = false
+                                        if (isDragging && dragStart && dragEnd) {
+                                            const minD = Math.min(dragStart.dayIdx, dragEnd.dayIdx)
+                                            const maxD = Math.max(dragStart.dayIdx, dragEnd.dayIdx)
+                                            const minH = Math.min(dragStart.hourIdx, dragEnd.hourIdx)
+                                            const maxH = Math.max(dragStart.hourIdx, dragEnd.hourIdx)
+
+                                            isInDragRange = dIdx >= minD && dIdx <= maxD && hIdx >= minH && hIdx <= maxH
+                                        }
+
+                                        const isSelected = myAvailability.includes(slot)
+                                        const effectivelySelected = isInDragRange ? isSelecting : isSelected
+
+                                        const slotParticipants = allParticipations.filter(p => p.disponibilidad?.includes(slot))
+                                        const count = slotParticipants.length
+                                        const total = allParticipations.length || 1
+
+                                        // Get names for tooltip
+                                        const names = slotParticipants.map(p => p.displayName).join(', ')
+
+                                        return (
+                                            <div
+                                                key={slot}
+                                                onMouseDown={() => handleMouseDown(dIdx, hIdx, d, h)}
+                                                onMouseEnter={() => handleMouseEnter(dIdx, hIdx)}
+                                                className={`h-20 w-full rounded-2xl cursor-pointer transition-all border-2 select-none flex items-center justify-center ${effectivelySelected ? 'border-green-600 ring-4 ring-green-100 shadow-sm scale-[1.02] z-10' : 'border-gray-100 hover:border-gray-200 shadow-sm'
+                                                    }`}
+                                                style={{
+                                                    backgroundColor: getColorForOccupancy(count, total)
+                                                }}
+                                                title={count > 0 ? `Asisten: ${names}` : 'Nadie disponible'}
+                                            >
+                                                {count > 0 && (
+                                                    <span className={`text-xs font-black ${count === total ? 'text-white' : 'text-green-800'}`}>
                                                         {count}
                                                     </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )
-                    })}
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )
+                        })
+                    }
                 </div>
             </div>
 

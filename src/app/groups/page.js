@@ -391,6 +391,15 @@ function GroupDetailsContent() {
 
                                                                         <div className="flex items-center gap-2 w-full md:w-auto">
                                                                             <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleDiscard(q.id_quedada); }}
+                                                                                className="p-2 text-red-400 hover:text-red-600 transition-colors"
+                                                                                title="Cancelar quedada"
+                                                                            >
+                                                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                </svg>
+                                                                            </button>
+                                                                            <button
                                                                                 onClick={(e) => { e.stopPropagation(); handleJoin(q); }}
                                                                                 className={`flex-1 md:flex-none px-4 py-2 rounded-xl font-bold text-sm transition-all ${amIIn ? 'bg-gray-100 text-gray-600' : 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700'}`}
                                                                             >

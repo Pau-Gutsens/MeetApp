@@ -240,65 +240,70 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                 <div className="grid gap-3 w-full min-w-max" style={{ gridTemplateColumns: `auto repeat(${days.length}, minmax(130px, 1fr))` }}>
                     {/* Header: Days */}
                     <div />
-                    {days.map((d, dIdx) => (
-                        <div key={d.toISOString()} className="flex flex-col items-center gap-1 min-w-[60px]">
-                            <div className="text-xs font-black text-indigo-400 uppercase tracking-tighter">
-                                {d.toLocaleDateString('es-ES', { weekday: 'short' })}
-                            </div>
-                            <div className="text-lg font-black text-gray-900">{d.getDate()}</div>
-                            <button
-                                onClick={() => toggleAllDay(d)}
-                                title="Seleccionar/Deseleccionar todo el día"
-                                className="p-2 rounded-xl transition-all border border-gray-100 shadow-sm hover:scale-105"
-                                style={{
-                                    backgroundColor: getColorForOccupancy(getMaxOccupancyForDay(d), allParticipations.length || 1)
-                                }}
-                            >
-                                <div className="flex items-center gap-1.5 px-1">
-                                    <div className={`h-5 w-5 ${hours.every(h => myAvailability.includes(`${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`)) ? 'text-green-600' : 'text-gray-300'}`}>
+                    {days.map((d, dIdx) => {
+                        const maxOccDay = getMaxOccupancyForDay(d)
+                        const totalParticipants = allParticipations.length || 1
+                        const allDaySelected = hours.every(h => myAvailability.includes(`${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`))
+
+                        return (
+                            <div key={d.toISOString()} className="flex flex-col items-center gap-1 min-w-[60px]">
+                                <div className="text-xs font-black text-indigo-400 uppercase tracking-tighter">
+                                    {d.toLocaleDateString('es-ES', { weekday: 'short' })}
+                                </div>
+                                <div className="text-lg font-black text-gray-900">{d.getDate()}</div>
+                                <button
+                                    onClick={() => toggleAllDay(d)}
+                                    title="Seleccionar/Deseleccionar todo el día"
+                                    className="p-2 rounded-xl transition-all border border-gray-100 shadow-sm hover:scale-105 flex items-center justify-center gap-1.5"
+                                    style={{
+                                        backgroundColor: getColorForOccupancy(maxOccDay, totalParticipants),
+                                        minWidth: '44px'
+                                    }}
+                                >
+                                    <div className={`h-4 w-4 ${allDaySelected ? 'text-green-600' : 'text-gray-300'}`}>
                                         <svg fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                         </svg>
                                     </div>
-                                    {getMaxOccupancyForDay(d) > 0 && (
-                                        <span className={`text-[10px] font-black ${getMaxOccupancyForDay(d) === (allParticipations.length || 1) ? 'text-white' : 'text-green-800'}`}>
-                                            {getMaxOccupancyForDay(d)}
+                                    {maxOccDay > 0 && (
+                                        <span className={`text-xs font-black ${maxOccDay === totalParticipants ? 'text-white' : 'text-green-900'}`}>
+                                            {maxOccDay}
                                         </span>
                                     )}
-                                </div>
-                            </button>
-                        </div>
-                    ))
-                    }
+                                </button>
+                            </div>
+                        )
+                    })}
 
                     {/* Rows: Hours */}
                     {
                         hours.map(h => {
                             const allSelected = days.every(d => myAvailability.includes(`${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`))
-                            const maxOcc = getMaxOccupancyForHour(h)
+                            const maxOccHour = getMaxOccupancyForHour(h)
+                            const totalParticipants = allParticipations.length || 1
+
                             return (
                                 <div key={h} className="contents">
-                                    <div className="flex items-center gap-2 pr-4 min-w-[80px]">
+                                    <div className="flex items-center gap-2 pr-4 min-w-[90px]">
                                         <button
                                             onClick={() => toggleAllHour(h)}
                                             title="Seleccionar/Deseleccionar toda la hora"
-                                            className="p-2 rounded-xl transition-all border border-gray-100 shadow-sm hover:scale-105"
+                                            className="p-1.5 rounded-xl transition-all border border-gray-100 shadow-sm hover:scale-105 flex items-center justify-center gap-1"
                                             style={{
-                                                backgroundColor: getColorForOccupancy(maxOcc, allParticipations.length || 1)
+                                                backgroundColor: getColorForOccupancy(maxOccHour, totalParticipants),
+                                                minWidth: '38px'
                                             }}
                                         >
-                                            <div className="flex items-center gap-1.5 px-0.5">
-                                                <div className={`h-4 w-4 ${allSelected ? 'text-green-600' : 'text-gray-300'}`}>
-                                                    <svg fill="currentColor" viewBox="0 0 20 20">
-                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                    </svg>
-                                                </div>
-                                                {maxOcc > 0 && (
-                                                    <span className={`text-[9px] font-black ${maxOcc === (allParticipations.length || 1) ? 'text-white' : 'text-green-800'}`}>
-                                                        {maxOcc}
-                                                    </span>
-                                                )}
+                                            <div className={`h-3.5 w-3.5 ${allSelected ? 'text-green-600' : 'text-gray-300'}`}>
+                                                <svg fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                </svg>
                                             </div>
+                                            {maxOccHour > 0 && (
+                                                <span className={`text-[10px] font-black ${maxOccHour === totalParticipants ? 'text-white' : 'text-green-900'}`}>
+                                                    {maxOccHour}
+                                                </span>
+                                            )}
                                         </button>
                                         <div className="text-sm font-black text-gray-400">{h}:00</div>
                                     </div>

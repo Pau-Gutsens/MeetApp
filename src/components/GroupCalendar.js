@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
-export default function GroupCalendar({ groupId, userId }) {
+export default function GroupCalendar({ groupId, userId, initialSelectedId }) {
     const [pastQuedadas, setPastQuedadas] = useState([])
     const [selectedQuedada, setSelectedQuedada] = useState(null)
     const [photos, setPhotos] = useState([])
@@ -17,6 +17,14 @@ export default function GroupCalendar({ groupId, userId }) {
     useEffect(() => {
         fetchPastQuedadas()
     }, [groupId])
+
+    // Handle external selection (from the Quedadas list)
+    useEffect(() => {
+        if (initialSelectedId && pastQuedadas.length > 0) {
+            const found = pastQuedadas.find(q => q.id_quedada === initialSelectedId)
+            if (found) handleSelectQuedada(found)
+        }
+    }, [initialSelectedId, pastQuedadas])
 
     useEffect(() => {
         if (!selectedQuedada) return
@@ -84,14 +92,25 @@ export default function GroupCalendar({ groupId, userId }) {
 
     const fetchPastQuedadas = async () => {
         const now = new Date().toISOString()
+
+        // We want meetings where the end date has passed.
+        // Since we can't easily do a complex OR/COALESCE in a simple Supabase query without raw SQL,
+        // we'll fetch all group meetings and filter locally, or try to be clever with gt/lt.
+        // Actually, let's fetch meetings where fecha_inicio is in the past, 
+        // OR better: fetch all and filter to match the "active" logic perfectly.
+
         const { data } = await supabase
             .from('Quedada')
             .select('*')
             .eq('id_grupo', groupId)
-            .lt('fecha_inicio', now)
-            .order('fecha_inicio', { ascending: true }) // Oldest first
+            .order('fecha_inicio', { ascending: false }) // Newest past meetings first
 
-        setPastQuedadas(data || [])
+        const filtered = (data || []).filter(q => {
+            const endDate = new Date(q.fecha_fin || q.fecha_inicio);
+            return endDate < new Date();
+        });
+
+        setPastQuedadas(filtered)
         setLoading(false)
     }
 
@@ -261,7 +280,7 @@ export default function GroupCalendar({ groupId, userId }) {
         <div className="flex flex-col md:flex-row gap-6 h-[80vh]">
             {/* Timeline / Calendar List */}
             <div className="w-full md:w-1/4 bg-white p-4 rounded-3xl shadow-lg overflow-y-auto">
-                <h3 className="text-xl font-bold mb-4 text-gray-800">📅 Cronología</h3>
+                <h3 className="text-xl font-bold mb-4 text-gray-800">📸 Recuerdos</h3>
                 <div className="space-y-4">
                     {pastQuedadas.map(q => (
                         <div

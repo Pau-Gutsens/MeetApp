@@ -17,8 +17,9 @@ function GroupDetailsContent() {
 
     // UI States
     const [view, setView] = useState('list') // 'list', 'create', 'details'
-    const [activeTab, setActiveTab] = useState('planes') // 'planes', 'calendario'
+    const [activeTab, setActiveTab] = useState('quedadas') // 'quedadas', 'recuerdos'
     const [selectedQuedada, setSelectedQuedada] = useState(null)
+    const [selectedPastId, setSelectedPastId] = useState(null) // ID to auto-select in Recuerdos
     const [participants, setParticipants] = useState([])
     const [isParticipant, setIsParticipant] = useState(false)
     const [myMembership, setMyMembership] = useState(null)
@@ -271,27 +272,31 @@ function GroupDetailsContent() {
 
                     <div className="flex space-x-1 bg-gray-200 p-1 rounded-xl w-fit">
                         <button
-                            onClick={() => { setActiveTab('planes'); setView('list'); }}
-                            className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'planes' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => { setActiveTab('quedadas'); setView('list'); }}
+                            className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'quedadas' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                         >
-                            🚀 Planes
+                            🚀 Quedadas
                         </button>
                         <button
-                            onClick={() => setActiveTab('calendario')}
-                            className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'calendario' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => { setActiveTab('recuerdos'); setSelectedPastId(null); }}
+                            className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'recuerdos' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                         >
-                            📅 Calendario
+                            📸 Recuerdos
                         </button>
                     </div>
                 </div>
 
-                {/* --- CALENDAR TAB --- */}
-                {activeTab === 'calendario' && (
-                    <GroupCalendar groupId={group.id_grupo} userId={user.id} />
+                {/* --- RECUERDOS TAB --- */}
+                {activeTab === 'recuerdos' && (
+                    <GroupCalendar
+                        groupId={group.id_grupo}
+                        userId={user.id}
+                        initialSelectedId={selectedPastId}
+                    />
                 )}
 
-                {/* --- PLANES TAB CONTENT --- */}
-                {activeTab === 'planes' && (
+                {/* --- QUEDADAS TAB CONTENT --- */}
+                {activeTab === 'quedadas' && (
                     <>
                         {/* Back Link */}
                         {view !== 'list' && (
@@ -320,46 +325,94 @@ function GroupDetailsContent() {
                                     </button>
                                 </div>
 
-                                <div className="grid gap-4">
-                                    {quedadas.length === 0 ? (
-                                        <div className="bg-white p-12 rounded-2xl text-center shadow-sm border border-gray-200">
-                                            <p className="text-gray-400 text-lg">No hay planes a la vista... 😴</p>
-                                        </div>
-                                    ) : (
-                                        quedadas.map(q => {
-                                            const amIIn = q.ParticipacionQuedada?.some(p => p.id_usuario === user.id)
-                                            return (
-                                                <div key={q.id_quedada} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                                    <div className="flex-1 cursor-pointer" onClick={() => selectQuedada(q)}>
-                                                        <div className="flex items-center gap-3 mb-1">
-                                                            <h3 className="text-xl font-black text-gray-800 hover:text-indigo-600 transition-colors">{q.nombre}</h3>
-                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border ${q.estado === 'Propuesta' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
-                                                                {q.estado}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-gray-500 text-sm font-medium">📅 {new Date(q.fecha_inicio).toLocaleString()}</p>
-                                                        <p className="text-gray-400 text-xs mt-1 line-clamp-1">{q.descripcion}</p>
-                                                    </div>
+                                <div className="space-y-12">
+                                    {(() => {
+                                        const now = new Date();
+                                        const activeMeetings = quedadas.filter(q => new Date(q.fecha_fin || q.fecha_inicio) >= now);
+                                        const pastMeetings = quedadas.filter(q => new Date(q.fecha_fin || q.fecha_inicio) < now);
 
-                                                    <div className="flex items-center gap-2 w-full md:w-auto">
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleJoin(q); }}
-                                                            className={`flex-1 md:flex-none px-4 py-2 rounded-xl font-bold text-sm transition-all ${amIIn ? 'bg-gray-100 text-gray-600' : 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700'}`}
-                                                        >
-                                                            {amIIn ? 'Gestionar Horas' : '¡Me apunto!'}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => selectQuedada(q)}
-                                                            className="p-2 text-gray-400 hover:text-black transition-colors"
-                                                            title="Ver detalles"
-                                                        >
-                                                            ➔
-                                                        </button>
+                                        return (
+                                            <>
+                                                {/* SECTION: ACTIVE MEETINGS */}
+                                                <div>
+                                                    <h2 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2">
+                                                        🔥 Próximas Quedadas
+                                                        {activeMeetings.length > 0 && <span className="bg-indigo-100 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full">{activeMeetings.length}</span>}
+                                                    </h2>
+                                                    <div className="grid gap-4">
+                                                        {activeMeetings.length === 0 ? (
+                                                            <div className="bg-white p-12 rounded-2xl text-center shadow-sm border border-gray-200">
+                                                                <p className="text-gray-400 text-lg">No hay planes activos... 😴</p>
+                                                            </div>
+                                                        ) : (
+                                                            activeMeetings.map(q => {
+                                                                const amIIn = q.ParticipacionQuedada?.some(p => p.id_usuario === user.id)
+                                                                return (
+                                                                    <div key={q.id_quedada} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                                                        <div className="flex-1 cursor-pointer" onClick={() => selectQuedada(q)}>
+                                                                            <div className="flex items-center gap-3 mb-1">
+                                                                                <h3 className="text-xl font-black text-gray-800 hover:text-indigo-600 transition-colors">{q.nombre}</h3>
+                                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border ${q.estado === 'Propuesta' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
+                                                                                    {q.estado}
+                                                                                </span>
+                                                                            </div>
+                                                                            <p className="text-gray-500 text-sm font-medium">📅 {new Date(q.fecha_inicio).toLocaleString()}</p>
+                                                                            <p className="text-gray-400 text-xs mt-1 line-clamp-1">{q.descripcion}</p>
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-2 w-full md:w-auto">
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleJoin(q); }}
+                                                                                className={`flex-1 md:flex-none px-4 py-2 rounded-xl font-bold text-sm transition-all ${amIIn ? 'bg-gray-100 text-gray-600' : 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700'}`}
+                                                                            >
+                                                                                {amIIn ? 'Gestionar Horas' : '¡Me apunto!'}
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => selectQuedada(q)}
+                                                                                className="p-2 text-gray-400 hover:text-black transition-colors"
+                                                                                title="Ver detalles"
+                                                                            >
+                                                                                ➔
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                )
+                                                            })
+                                                        )}
                                                     </div>
                                                 </div>
-                                            )
-                                        })
-                                    )}
+
+                                                {/* SECTION: PAST MEETINGS */}
+                                                {pastMeetings.length > 0 && (
+                                                    <div>
+                                                        <h2 className="text-xl font-black text-gray-400 mb-4 flex items-center gap-2">
+                                                            🕰️ Quedadas Pasadas
+                                                            <span className="bg-gray-100 text-gray-400 text-[10px] px-2 py-0.5 rounded-full">{pastMeetings.length}</span>
+                                                        </h2>
+                                                        <div className="grid gap-3 opacity-70">
+                                                            {pastMeetings.map(q => (
+                                                                <div key={q.id_quedada} className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex justify-between items-center group hover:bg-white transition-all">
+                                                                    <div>
+                                                                        <h4 className="font-bold text-gray-700">{q.nombre}</h4>
+                                                                        <p className="text-xs text-gray-400">Finalizó el {new Date(q.fecha_fin || q.fecha_inicio).toLocaleDateString()}</p>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSelectedPastId(q.id_quedada);
+                                                                            setActiveTab('recuerdos');
+                                                                        }}
+                                                                        className="bg-white border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-500 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                                                                    >
+                                                                        Ver Recuerdos 📸
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </>
                         )}

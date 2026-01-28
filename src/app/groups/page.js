@@ -19,9 +19,10 @@ function GroupDetailsContent() {
     const [view, setView] = useState('list') // 'list', 'create', 'details'
     const [activeTab, setActiveTab] = useState('quedadas') // 'quedadas', 'recuerdos'
     const [selectedQuedada, setSelectedQuedada] = useState(null)
-    const [selectedPastId, setSelectedPastId] = useState(null) // ID to auto-select in Recuerdos
-    const [participants, setParticipants] = useState([])
+    const [quedadaParticipants, setQuedadaParticipants] = useState([])
     const [isParticipant, setIsParticipant] = useState(false)
+    const [proponentName, setProponentName] = useState('')
+    const [selectedPastId, setSelectedPastId] = useState(null) // ID to auto-select in Recuerdos
     const [myMembership, setMyMembership] = useState(null)
     const [myApodo, setMyApodo] = useState('')
     const [isEditingApodo, setIsEditingApodo] = useState(false)
@@ -110,6 +111,9 @@ function GroupDetailsContent() {
     }, [group, selectedQuedada])
 
     const fetchQuedadaDetails = async (quedadaId) => {
+        // Reset proponent name for new selection
+        setProponentName('')
+
         // 1. Get Participants for this quedada
         const { data: parts } = await supabase
             .from('ParticipacionQuedada')
@@ -128,55 +132,49 @@ function GroupDetailsContent() {
         const enhancedParts = (parts || []).map(p => {
             const member = members?.find(m => m.id_usuario === p.id_usuario)
             const u = Array.isArray(p.Usuario) ? p.Usuario[0] : p.Usuario
-            const name = member?.apodo || u?.nombre || u?.email || 'Anónimo'
+            const displayName = member?.apodo || u?.nombre || u?.email || 'Anónimo'
+
+            if (p.rol === 'Organizador') {
+                setProponentName(displayName)
+            }
 
             return {
                 ...p,
-                displayName: name
+                displayName
             }
         })
 
-        setParticipants(enhancedParts)
+        setQuedadaParticipants(enhancedParts)
         const amIIn = enhancedParts.find(p => p.id_usuario === user.id)
         setIsParticipant(!!amIIn)
     }
 
     const handleCreateWrapper = async () => {
         setMsg('')
-        const now = new Date().toISOString().split('T')[0]
+        const now = new Date()
 
         if (!formData.nombre || !formData.fecha_inicio) {
             setMsg('Faltan campos obligatorios.')
             return
         }
 
-        if (formData.fecha_inicio < now) {
+        if (new Date(formData.fecha_inicio) < now) {
             setMsg('No puedes crear una quedada en el pasado.')
             return
         }
 
         try {
-            const nowLocal = new Date()
-            const [y1, m1, d1] = formData.fecha_inicio.split('-').map(Number)
-            const [y2, m2, d2] = (formData.fecha_fin || formData.fecha_inicio).split('-').map(Number)
-
-            const startObj = new Date(y1, m1 - 1, d1)
-            const endObj = new Date(y2, m2 - 1, d2)
-
-            const todayStr = nowLocal.getFullYear() + '-' + String(nowLocal.getMonth() + 1).padStart(2, '0') + '-' + String(nowLocal.getDate()).padStart(2, '0')
-
-            if (formData.fecha_inicio === todayStr) {
-                startObj.setHours(nowLocal.getHours(), nowLocal.getMinutes(), nowLocal.getSeconds())
-            } else {
-                startObj.setHours(0, 0, 0, 0)
-            }
-            endObj.setHours(23, 59, 59, 999)
+            const finalInicio = new Date(formData.fecha_inicio).toISOString()
+            const finalFin = formData.fecha_fin ? new Date(formData.fecha_fin).toISOString() : finalInicio
 
             const { data, error } = await supabase.from('Quedada').insert({
                 id_grupo: group.id_grupo,
-                ...formData,
-                fecha_inicio: startObj.toISOString(),
-                fecha_fin: endObj.toISOString(),
+                nombre: formData.nombre,
+                descripcion: formData.descripcion,
+                aforo_min: formData.aforo_min,
+                aforo_max: formData.aforo_max,
+                fecha_inicio: finalInicio,
+                fecha_fin: finalFin,
                 estado: 'Propuesta'
             }).select().single()
 
@@ -496,22 +494,22 @@ function GroupDetailsContent() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Inicio</label>
+                                            <label className="block text-sm font-bold text-gray-700 mb-1">Inicio (Día y Hora)</label>
                                             <input
-                                                type="date"
+                                                type="datetime-local"
                                                 className="w-full p-3 bg-gray-50 rounded-xl text-black"
                                                 value={formData.fecha_inicio}
-                                                min={new Date().toISOString().split('T')[0]}
+                                                min={new Date().toISOString().slice(0, 16)}
                                                 onChange={e => setFormData({ ...formData, fecha_inicio: e.target.value })}
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Fin</label>
+                                            <label className="block text-sm font-bold text-gray-700 mb-1">Fin (Día y Hora)</label>
                                             <input
-                                                type="date"
+                                                type="datetime-local"
                                                 className="w-full p-3 bg-gray-50 rounded-xl text-black"
                                                 value={formData.fecha_fin}
-                                                min={formData.fecha_inicio || new Date().toISOString().split('T')[0]}
+                                                min={formData.fecha_inicio || new Date().toISOString().slice(0, 16)}
                                                 onChange={e => setFormData({ ...formData, fecha_fin: e.target.value })}
                                             />
                                         </div>
@@ -547,7 +545,7 @@ function GroupDetailsContent() {
                                         </span>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-3xl font-bold text-indigo-600">{participants.length} / {selectedQuedada.aforo_max}</div>
+                                        <div className="text-3xl font-bold text-indigo-600">{quedadaParticipants.length} / {selectedQuedada.aforo_max}</div>
                                         <div className="text-sm text-gray-500">Asistentes</div>
                                     </div>
                                 </div>
@@ -556,31 +554,53 @@ function GroupDetailsContent() {
                                     {selectedQuedada.descripcion || "Sin descripción."}
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                                    <div>
-                                        <h3 className="font-bold text-gray-900 mb-3">📅 Cuándo</h3>
-                                        <p className="text-gray-700">Del: {new Date(selectedQuedada.fecha_inicio).toLocaleString()}</p>
-                                        {selectedQuedada.fecha_fin && <p className="text-gray-700">Al: {new Date(selectedQuedada.fecha_fin).toLocaleString()}</p>}
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-900 mb-3">🙋 Quiénes van</h3>
-                                        <div className="space-y-2">
-                                            {participants.map((p, i) => (
-                                                <div key={i} className="flex items-center justify-between bg-gray-50 p-2 rounded-xl">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-800">
-                                                            {(p.displayName || p.Usuario?.nombre || p.Usuario?.email || '?')[0].toUpperCase()}
+                                <div className="flex flex-col md:flex-row gap-8">
+                                    <div className="flex-1 space-y-6">
+                                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-black">
+                                                    {proponentName?.[0]?.toUpperCase() || 'P'}
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-black text-gray-900 leading-tight">Propuesta de {proponentName || '...'}</h3>
+                                                    <p className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Creador del plan</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50">
+                                                <p className="text-sm font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                                                    📅 Cuándo
+                                                </p>
+                                                <div className="space-y-1">
+                                                    <p className="text-sm text-indigo-700">
+                                                        <span className="font-black">Del:</span> {new Date(selectedQuedada.fecha_inicio).toLocaleString()}
+                                                    </p>
+                                                    <p className="text-sm text-indigo-700">
+                                                        <span className="font-black">Al:</span> {new Date(selectedQuedada.fecha_fin).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
+                                            <h3 className="font-bold text-gray-900 mb-3">🙋 Quiénes van</h3>
+                                            <div className="space-y-2">
+                                                {quedadaParticipants.map((p, i) => (
+                                                    <div key={i} className="flex items-center justify-between bg-gray-50 p-2 rounded-xl">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-800">
+                                                                {(p.displayName || p.Usuario?.nombre || p.Usuario?.email || '?')[0].toUpperCase()}
+                                                            </div>
+                                                            <span className="text-sm font-medium text-gray-700">
+                                                                {p.displayName || p.Usuario?.nombre || p.Usuario?.email || 'Anónimo'} {p.id_usuario === user.id && '(Tú)'}
+                                                            </span>
                                                         </div>
-                                                        <span className="text-sm font-medium text-gray-700">
-                                                            {p.displayName || p.Usuario?.nombre || p.Usuario?.email || 'Anónimo'} {p.id_usuario === user.id && '(Tú)'}
+                                                        <span className="text-[10px] px-2 py-1 bg-white border border-gray-200 rounded-full font-bold text-gray-500 uppercase tracking-wider">
+                                                            {p.rol || 'Asistente'}
                                                         </span>
                                                     </div>
-                                                    <span className="text-[10px] px-2 py-1 bg-white border border-gray-200 rounded-full font-bold text-gray-500 uppercase tracking-wider">
-                                                        {p.rol || 'Asistente'}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                            {participants.length === 0 && <span className="text-gray-400 italic">Nadie todavía...</span>}
+                                                ))}
+                                                {quedadaParticipants.length === 0 && <span className="text-gray-400 italic">Nadie todavía...</span>}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -591,7 +611,7 @@ function GroupDetailsContent() {
                                             <label className="block text-xs font-black text-indigo-400 uppercase mb-2">Mi Rol en este plan</label>
                                             <select
                                                 className="w-full p-3 bg-white rounded-xl border-none shadow-sm text-sm font-bold text-black focus:ring-2 focus:ring-indigo-500"
-                                                value={participants.find(p => p.id_usuario === user.id)?.rol || 'Asistente'}
+                                                value={quedadaParticipants.find(p => p.id_usuario === user.id)?.rol || 'Asistente'}
                                                 onChange={async (e) => {
                                                     const newRol = e.target.value;
                                                     const { error } = await supabase

@@ -21,6 +21,38 @@ const parseProposal = (rawDescription) => {
     }
 }
 
+const isPlanPossible = (quedada, participants) => {
+    if (!quedada || !participants || quedada.aforo_min < 1 || participants.length < quedada.aforo_min) return false
+
+    const { proposal } = parseProposal(quedada.descripcion || quedada.rawDescription)
+    if (!proposal) return false
+
+    const pStart = new Date(proposal.start)
+    const pEnd = new Date(proposal.end)
+
+    // A user is compatible if they have all hourly slots covered by the proposal
+    const getNeededSlots = (start, end) => {
+        const slots = []
+        let curr = new Date(start)
+        curr.setMinutes(0, 0, 0, 0)
+        while (curr < end) {
+            slots.push(`${curr.toISOString().split('T')[0]}T${curr.getHours().toString().padStart(2, '0')}:00:00`)
+            curr.setHours(curr.getHours() + 1)
+        }
+        return slots
+    }
+
+    const neededSlots = getNeededSlots(pStart, pEnd)
+    if (neededSlots.length === 0) return false
+
+    const compatibleCount = participants.filter(p => {
+        const userSlots = p.disponibilidad || []
+        return neededSlots.every(slot => userSlots.includes(slot))
+    }).length
+
+    return compatibleCount >= quedada.aforo_min
+}
+
 function GroupDetailsContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -99,7 +131,7 @@ function GroupDetailsContent() {
     const fetchQuedadas = async (groupId) => {
         const { data } = await supabase
             .from('Quedada')
-            .select('*, ParticipacionQuedada(id_usuario, rol)')
+            .select('*, ParticipacionQuedada(id_usuario, rol, disponibilidad)')
             .eq('id_grupo', groupId)
             .order('fecha_inicio', { ascending: true })
         setQuedadas(data || [])
@@ -212,8 +244,8 @@ function GroupDetailsContent() {
                 id_grupo: group.id_grupo,
                 nombre: formData.nombre,
                 descripcion: formatProposal(proposal, formData.descripcion),
-                aforo_min: formData.aforo_min,
-                aforo_max: formData.aforo_max,
+                aforo_min: Math.max(0, parseInt(formData.aforo_min) || 0),
+                aforo_max: Math.max(0, parseInt(formData.aforo_max) || 0),
                 fecha_inicio: rangingStart.toISOString(),
                 fecha_fin: rangingEnd.toISOString(),
                 estado: 'Propuesta'
@@ -312,8 +344,8 @@ function GroupDetailsContent() {
                 .update({
                     nombre: editFormData.nombre,
                     descripcion: formatProposal(newProposal, editFormData.descripcion),
-                    aforo_min: Math.max(1, editFormData.aforo_min),
-                    aforo_max: Math.max(1, editFormData.aforo_max)
+                    aforo_min: Math.max(0, parseInt(editFormData.aforo_min) || 0),
+                    aforo_max: Math.max(0, parseInt(editFormData.aforo_max) || 0)
                 })
                 .eq('id_quedada', selectedQuedada.id_quedada)
 
@@ -479,7 +511,7 @@ function GroupDetailsContent() {
                                                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border ${q.estado === 'Propuesta' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
                                                                                     {q.estado}
                                                                                 </span>
-                                                                                {q.estado === 'Propuesta' && q.ParticipacionQuedada?.length >= q.aforo_min && (
+                                                                                {q.estado === 'Propuesta' && isPlanPossible(q, q.ParticipacionQuedada) && (
                                                                                     <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border bg-blue-50 border-blue-200 text-blue-700">
                                                                                         Posible
                                                                                     </span>
@@ -660,11 +692,11 @@ function GroupDetailsContent() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Aforo Mín</label>
-                                            <input type="number" min="1" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.aforo_min} onChange={e => setFormData({ ...formData, aforo_min: Math.max(1, parseInt(e.target.value) || 1) })} />
+                                            <input type="number" min="0" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.aforo_min} onChange={e => setFormData({ ...formData, aforo_min: e.target.value })} />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Aforo Máx</label>
-                                            <input type="number" min="1" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.aforo_max} onChange={e => setFormData({ ...formData, aforo_max: Math.max(1, parseInt(e.target.value) || 1) })} />
+                                            <input type="number" min="0" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.aforo_max} onChange={e => setFormData({ ...formData, aforo_max: e.target.value })} />
                                         </div>
                                     </div>
 
@@ -687,8 +719,8 @@ function GroupDetailsContent() {
                                             <span className={`px-3 py-1 rounded-full text-sm font-bold ${selectedQuedada.estado === 'Propuesta' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
                                                 {selectedQuedada.estado}
                                             </span>
-                                            {selectedQuedada.estado === 'Propuesta' && quedadaParticipants.length >= selectedQuedada.aforo_min && (
-                                                <span className="px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
+                                            {selectedQuedada.estado === 'Propuesta' && isPlanPossible(selectedQuedada, quedadaParticipants) && (
+                                                <span className="ml-2 px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
                                                     Posible
                                                 </span>
                                             )}
@@ -726,11 +758,11 @@ function GroupDetailsContent() {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Aforo Mínimo</label>
-                                                <input type="number" min="1" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black font-bold" value={editFormData.aforo_min} onChange={e => setEditFormData({ ...editFormData, aforo_min: Math.max(1, parseInt(e.target.value) || 1) })} />
+                                                <input type="number" min="0" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black font-bold" value={editFormData.aforo_min} onChange={e => setEditFormData({ ...editFormData, aforo_min: e.target.value })} />
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Aforo Máximo</label>
-                                                <input type="number" min="1" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black font-bold" value={editFormData.aforo_max} onChange={e => setEditFormData({ ...editFormData, aforo_max: Math.max(1, parseInt(e.target.value) || 1) })} />
+                                                <input type="number" min="0" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black font-bold" value={editFormData.aforo_max} onChange={e => setEditFormData({ ...editFormData, aforo_max: e.target.value })} />
                                             </div>
                                         </div>
                                         <button onClick={handleUpdateMeeting} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black shadow-lg hover:bg-indigo-700 transition-all">

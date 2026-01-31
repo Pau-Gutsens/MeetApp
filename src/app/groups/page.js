@@ -99,7 +99,7 @@ function GroupDetailsContent() {
     const fetchQuedadas = async (groupId) => {
         const { data } = await supabase
             .from('Quedada')
-            .select('*, ParticipacionQuedada(id_usuario)')
+            .select('*, ParticipacionQuedada(id_usuario, rol)')
             .eq('id_grupo', groupId)
             .order('fecha_inicio', { ascending: true })
         setQuedadas(data || [])
@@ -134,6 +134,7 @@ function GroupDetailsContent() {
     }, [group, selectedQuedada])
 
     const selectQuedada = async (q) => {
+        setIsEditingMeeting(false)
         const { proposal, description } = parseProposal(q.descripcion)
         setSelectedQuedada({ ...q, rawDescription: q.descripcion, description })
         setSelectedProposal(proposal)
@@ -302,8 +303,8 @@ function GroupDetailsContent() {
 
             // Re-format description with new proposal if dates changed
             const newProposal = {
-                start: new Date(editFormData.propuesta_inicio || proposal.start).toISOString(),
-                end: new Date(editFormData.propuesta_fin || proposal.end).toISOString()
+                start: new Date(editFormData.propuesta_inicio || proposal?.start || new Date().toISOString()).toISOString(),
+                end: new Date(editFormData.propuesta_fin || proposal?.end || new Date().toISOString()).toISOString()
             }
 
             const { error } = await supabase
@@ -311,8 +312,8 @@ function GroupDetailsContent() {
                 .update({
                     nombre: editFormData.nombre,
                     descripcion: formatProposal(newProposal, editFormData.descripcion),
-                    aforo_min: editFormData.aforo_min,
-                    aforo_max: editFormData.aforo_max
+                    aforo_min: Math.max(1, editFormData.aforo_min),
+                    aforo_max: Math.max(1, editFormData.aforo_max)
                 })
                 .eq('id_quedada', selectedQuedada.id_quedada)
 
@@ -423,7 +424,7 @@ function GroupDetailsContent() {
                     <>
                         {/* Back Link */}
                         {view !== 'list' && (
-                            <button onClick={() => setView('list')} className="mb-4 text-gray-500 hover:text-black font-medium">
+                            <button onClick={() => { setView('list'); setIsEditingMeeting(false); }} className="mb-4 text-gray-500 hover:text-black font-medium">
                                 &larr; Volver a la lista
                             </button>
                         )}
@@ -489,6 +490,34 @@ function GroupDetailsContent() {
                                                                         </div>
 
                                                                         <div className="flex items-center gap-2 w-full md:w-auto">
+                                                                            {(() => {
+                                                                                const participation = q.ParticipacionQuedada?.find(p => p.id_usuario === user.id);
+                                                                                const isOrganizer = participation?.rol === 'Organizador';
+                                                                                return isOrganizer && (
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            selectQuedada(q);
+                                                                                            setIsEditingMeeting(true);
+                                                                                            const { proposal, description } = parseProposal(q.descripcion);
+                                                                                            setEditFormData({
+                                                                                                nombre: q.nombre,
+                                                                                                descripcion: description,
+                                                                                                aforo_min: q.aforo_min,
+                                                                                                aforo_max: q.aforo_max,
+                                                                                                propuesta_inicio: proposal?.start?.slice(0, 16) || '',
+                                                                                                propuesta_fin: proposal?.end?.slice(0, 16) || ''
+                                                                                            });
+                                                                                        }}
+                                                                                        className="p-2 text-indigo-400 hover:text-indigo-600 transition-colors"
+                                                                                        title="Editar quedada"
+                                                                                    >
+                                                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                                        </svg>
+                                                                                    </button>
+                                                                                );
+                                                                            })()}
                                                                             <button
                                                                                 onClick={(e) => { e.stopPropagation(); handleDiscard(q.id_quedada); }}
                                                                                 className="p-2 text-red-400 hover:text-red-600 transition-colors"
@@ -503,13 +532,6 @@ function GroupDetailsContent() {
                                                                                 className={`flex-1 md:flex-none px-4 py-2 rounded-xl font-bold text-sm transition-all ${amIIn ? 'bg-gray-100 text-gray-600' : (q.ParticipacionQuedada?.length >= q.aforo_max ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700')}`}
                                                                             >
                                                                                 {amIIn ? 'Gestionar Horas' : (q.ParticipacionQuedada?.length >= q.aforo_max ? 'Completo 🛑' : '¡Me apunto!')}
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => selectQuedada(q)}
-                                                                                className="p-2 text-gray-400 hover:text-black transition-colors"
-                                                                                title="Ver detalles"
-                                                                            >
-                                                                                ➔
                                                                             </button>
                                                                         </div>
                                                                     </div>
@@ -638,11 +660,11 @@ function GroupDetailsContent() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Aforo Mín</label>
-                                            <input type="number" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.aforo_min} onChange={e => setFormData({ ...formData, aforo_min: e.target.value })} />
+                                            <input type="number" min="1" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.aforo_min} onChange={e => setFormData({ ...formData, aforo_min: Math.max(1, parseInt(e.target.value) || 1) })} />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-gray-700 mb-1">Aforo Máx</label>
-                                            <input type="number" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.aforo_max} onChange={e => setFormData({ ...formData, aforo_max: e.target.value })} />
+                                            <input type="number" min="1" className="w-full p-3 bg-gray-50 rounded-xl text-black" value={formData.aforo_max} onChange={e => setFormData({ ...formData, aforo_max: Math.max(1, parseInt(e.target.value) || 1) })} />
                                         </div>
                                     </div>
 
@@ -669,25 +691,6 @@ function GroupDetailsContent() {
                                                 <span className="px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
                                                     Posible
                                                 </span>
-                                            )}
-                                            {quedadaParticipants.find(p => p.id_usuario === user.id)?.rol === 'Organizador' && (
-                                                <button
-                                                    onClick={() => {
-                                                        setIsEditingMeeting(!isEditingMeeting)
-                                                        const { proposal } = parseProposal(selectedQuedada.rawDescription)
-                                                        setEditFormData({
-                                                            nombre: selectedQuedada.nombre,
-                                                            descripcion: selectedQuedada.description,
-                                                            aforo_min: selectedQuedada.aforo_min,
-                                                            aforo_max: selectedQuedada.aforo_max,
-                                                            propuesta_inicio: proposal?.start?.slice(0, 16) || '',
-                                                            propuesta_fin: proposal?.end?.slice(0, 16) || ''
-                                                        })
-                                                    }}
-                                                    className="px-3 py-1 rounded-full text-sm font-bold bg-gray-100 text-gray-600 hover:bg-gray-200"
-                                                >
-                                                    {isEditingMeeting ? 'Cancelar Edición' : '⚙️ Editar Plan'}
-                                                </button>
                                             )}
                                         </div>
                                     </div>
@@ -723,11 +726,11 @@ function GroupDetailsContent() {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Aforo Mínimo</label>
-                                                <input type="number" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black" value={editFormData.aforo_min} onChange={e => setEditFormData({ ...editFormData, aforo_min: e.target.value })} />
+                                                <input type="number" min="1" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black font-bold" value={editFormData.aforo_min} onChange={e => setEditFormData({ ...editFormData, aforo_min: Math.max(1, parseInt(e.target.value) || 1) })} />
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Aforo Máximo</label>
-                                                <input type="number" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black" value={editFormData.aforo_max} onChange={e => setEditFormData({ ...editFormData, aforo_max: e.target.value })} />
+                                                <input type="number" min="1" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black font-bold" value={editFormData.aforo_max} onChange={e => setEditFormData({ ...editFormData, aforo_max: Math.max(1, parseInt(e.target.value) || 1) })} />
                                             </div>
                                         </div>
                                         <button onClick={handleUpdateMeeting} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black shadow-lg hover:bg-indigo-700 transition-all">

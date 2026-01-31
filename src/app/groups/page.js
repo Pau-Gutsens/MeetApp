@@ -51,6 +51,15 @@ function GroupDetailsContent() {
     const [myMembership, setMyMembership] = useState(null)
     const [myApodo, setMyApodo] = useState('')
     const [isEditingApodo, setIsEditingApodo] = useState(false)
+    const [isEditingMeeting, setIsEditingMeeting] = useState(false)
+    const [editFormData, setEditFormData] = useState({
+        nombre: '',
+        descripcion: '',
+        aforo_min: 1,
+        aforo_max: 10,
+        propuesta_inicio: '',
+        propuesta_fin: ''
+    })
 
     useEffect(() => {
         loadData()
@@ -242,6 +251,10 @@ function GroupDetailsContent() {
                 }
             } else {
                 // Join
+                if (quedada.ParticipacionQuedada?.length >= quedada.aforo_max) {
+                    alert('Esta quedada ya ha alcanzado el aforo máximo. 🛑')
+                    return
+                }
                 await supabase
                     .from('ParticipacionQuedada')
                     .insert({
@@ -280,6 +293,46 @@ function GroupDetailsContent() {
 
         if (!error) fetchQuedadas(groupId)
         else alert(error.message)
+    }
+
+    const handleUpdateMeeting = async () => {
+        setMsg('')
+        try {
+            const { proposal, description } = parseProposal(selectedQuedada.rawDescription)
+
+            // Re-format description with new proposal if dates changed
+            const newProposal = {
+                start: new Date(editFormData.propuesta_inicio || proposal.start).toISOString(),
+                end: new Date(editFormData.propuesta_fin || proposal.end).toISOString()
+            }
+
+            const { error } = await supabase
+                .from('Quedada')
+                .update({
+                    nombre: editFormData.nombre,
+                    descripcion: formatProposal(newProposal, editFormData.descripcion),
+                    aforo_min: editFormData.aforo_min,
+                    aforo_max: editFormData.aforo_max
+                })
+                .eq('id_quedada', selectedQuedada.id_quedada)
+
+            if (error) throw error
+
+            setIsEditingMeeting(false)
+            await fetchQuedadas(groupId)
+
+            // Update local selected state immediately for better UX
+            const updatedRawDescription = formatProposal(newProposal, editFormData.descripcion)
+            setSelectedQuedada(prev => ({
+                ...prev,
+                nombre: editFormData.nombre,
+                descripcion: editFormData.descripcion,
+                rawDescription: updatedRawDescription,
+                aforo_min: editFormData.aforo_min,
+                aforo_max: editFormData.aforo_max
+            }))
+            setSelectedProposal(newProposal)
+        } catch (e) { alert(e.message) }
     }
 
     if (loading) return <div className="p-8">Cargando...</div>
@@ -425,6 +478,11 @@ function GroupDetailsContent() {
                                                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border ${q.estado === 'Propuesta' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
                                                                                     {q.estado}
                                                                                 </span>
+                                                                                {q.estado === 'Propuesta' && q.ParticipacionQuedada?.length >= q.aforo_min && (
+                                                                                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border bg-blue-50 border-blue-200 text-blue-700">
+                                                                                        Posible
+                                                                                    </span>
+                                                                                )}
                                                                             </div>
                                                                             <p className="text-gray-500 text-sm font-medium">📅 {new Date(q.fecha_inicio).toLocaleDateString()}</p>
                                                                             <p className="text-gray-400 text-xs mt-1 line-clamp-1">{parseProposal(q.descripcion).description}</p>
@@ -442,9 +500,9 @@ function GroupDetailsContent() {
                                                                             </button>
                                                                             <button
                                                                                 onClick={(e) => { e.stopPropagation(); handleJoin(q); }}
-                                                                                className={`flex-1 md:flex-none px-4 py-2 rounded-xl font-bold text-sm transition-all ${amIIn ? 'bg-gray-100 text-gray-600' : 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700'}`}
+                                                                                className={`flex-1 md:flex-none px-4 py-2 rounded-xl font-bold text-sm transition-all ${amIIn ? 'bg-gray-100 text-gray-600' : (q.ParticipacionQuedada?.length >= q.aforo_max ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700')}`}
                                                                             >
-                                                                                {amIIn ? 'Gestionar Horas' : '¡Me apunto!'}
+                                                                                {amIIn ? 'Gestionar Horas' : (q.ParticipacionQuedada?.length >= q.aforo_max ? 'Completo 🛑' : '¡Me apunto!')}
                                                                             </button>
                                                                             <button
                                                                                 onClick={() => selectQuedada(q)}
@@ -603,19 +661,84 @@ function GroupDetailsContent() {
                                 <div className="flex justify-between items-start mb-6">
                                     <div>
                                         <h1 className="text-3xl font-extrabold text-gray-900 mb-2">{selectedQuedada.nombre}</h1>
-                                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${selectedQuedada.estado === 'Propuesta' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                                            {selectedQuedada.estado}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${selectedQuedada.estado === 'Propuesta' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                                                {selectedQuedada.estado}
+                                            </span>
+                                            {selectedQuedada.estado === 'Propuesta' && quedadaParticipants.length >= selectedQuedada.aforo_min && (
+                                                <span className="px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
+                                                    Posible
+                                                </span>
+                                            )}
+                                            {quedadaParticipants.find(p => p.id_usuario === user.id)?.rol === 'Organizador' && (
+                                                <button
+                                                    onClick={() => {
+                                                        setIsEditingMeeting(!isEditingMeeting)
+                                                        const { proposal } = parseProposal(selectedQuedada.rawDescription)
+                                                        setEditFormData({
+                                                            nombre: selectedQuedada.nombre,
+                                                            descripcion: selectedQuedada.description,
+                                                            aforo_min: selectedQuedada.aforo_min,
+                                                            aforo_max: selectedQuedada.aforo_max,
+                                                            propuesta_inicio: proposal?.start?.slice(0, 16) || '',
+                                                            propuesta_fin: proposal?.end?.slice(0, 16) || ''
+                                                        })
+                                                    }}
+                                                    className="px-3 py-1 rounded-full text-sm font-bold bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                                >
+                                                    {isEditingMeeting ? 'Cancelar Edición' : '⚙️ Editar Plan'}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-3xl font-bold text-indigo-600">{quedadaParticipants.length} / {selectedQuedada.aforo_max}</div>
+                                        <div className="text-3xl font-bold text-indigo-600">
+                                            {quedadaParticipants.length} / {selectedQuedada.aforo_max}
+                                        </div>
                                         <div className="text-sm text-gray-500">Asistentes</div>
                                     </div>
                                 </div>
 
-                                <div className="prose max-w-none text-gray-600 mb-8 bg-gray-50 p-6 rounded-2xl">
-                                    {selectedQuedada.description || "Sin descripción."}
-                                </div>
+                                {isEditingMeeting ? (
+                                    <div className="bg-gray-50 p-6 rounded-2xl mb-8 space-y-4 border border-indigo-100">
+                                        <h3 className="font-black text-indigo-700 uppercase text-xs tracking-widest mb-4">Editar Detalles de la Quedada</h3>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Nombre</label>
+                                            <input className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black font-bold" value={editFormData.nombre} onChange={e => setEditFormData({ ...editFormData, nombre: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Descripción</label>
+                                            <textarea className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black" rows={3} value={editFormData.descripcion} onChange={e => setEditFormData({ ...editFormData, descripcion: e.target.value })} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Horario Sugerido Inicio</label>
+                                                <input type="datetime-local" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black" value={editFormData.propuesta_inicio} onChange={e => setEditFormData({ ...editFormData, propuesta_inicio: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Horario Sugerido Fin</label>
+                                                <input type="datetime-local" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black" value={editFormData.propuesta_fin} onChange={e => setEditFormData({ ...editFormData, propuesta_fin: e.target.value })} />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Aforo Mínimo</label>
+                                                <input type="number" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black" value={editFormData.aforo_min} onChange={e => setEditFormData({ ...editFormData, aforo_min: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Aforo Máximo</label>
+                                                <input type="number" className="w-full p-3 bg-white rounded-xl border border-gray-200 text-black" value={editFormData.aforo_max} onChange={e => setEditFormData({ ...editFormData, aforo_max: e.target.value })} />
+                                            </div>
+                                        </div>
+                                        <button onClick={handleUpdateMeeting} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black shadow-lg hover:bg-indigo-700 transition-all">
+                                            Guardar Cambios
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="prose max-w-none text-gray-600 mb-8 bg-gray-50 p-6 rounded-2xl">
+                                        {selectedQuedada.description || "Sin descripción."}
+                                    </div>
+                                )}
 
                                 <div className="flex flex-col md:flex-row gap-8">
                                     <div className="flex-1 space-y-6">
@@ -710,9 +833,10 @@ function GroupDetailsContent() {
 
                                 <button
                                     onClick={() => handleJoin(selectedQuedada)}
-                                    className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] ${isParticipant ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                                    disabled={!isParticipant && quedadaParticipants.length >= selectedQuedada.aforo_max}
+                                    className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] ${isParticipant ? 'bg-red-50 text-red-600 hover:bg-red-100' : (quedadaParticipants.length >= selectedQuedada.aforo_max ? 'bg-gray-200 text-gray-400 cursor-not-allowed hover:scale-100' : 'bg-indigo-600 text-white hover:bg-indigo-700')}`}
                                 >
-                                    {isParticipant ? '❌ Me bajo del plan' : '✅ ¡Me apunto!'}
+                                    {isParticipant ? '❌ Me bajo del plan' : (quedadaParticipants.length >= selectedQuedada.aforo_max ? 'Límite de aforo alcanzado 🛑' : '✅ ¡Me apunto!')}
                                 </button>
                             </div>
                         )}

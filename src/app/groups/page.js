@@ -22,7 +22,7 @@ const parseProposal = (rawDescription) => {
 }
 
 const isPlanPossible = (quedada, participants) => {
-    if (!quedada || !participants || quedada.aforo_min < 1 || participants.length < quedada.aforo_min) return false
+    if (!quedada || !participants || participants.length <= quedada.aforo_min) return false
 
     const { proposal } = parseProposal(quedada.descripcion || quedada.rawDescription)
     if (!proposal) return false
@@ -30,13 +30,13 @@ const isPlanPossible = (quedada, participants) => {
     const pStart = new Date(proposal.start)
     const pEnd = new Date(proposal.end)
 
-    // A user is compatible if they have all hourly slots covered by the proposal
+    // Standard hourly slot generation (UTC)
     const getNeededSlots = (start, end) => {
         const slots = []
         let curr = new Date(start)
         curr.setMinutes(0, 0, 0, 0)
         while (curr < end) {
-            slots.push(`${curr.toISOString().split('T')[0]}T${curr.getHours().toString().padStart(2, '0')}:00:00`)
+            slots.push(curr.toISOString().replace(/\.\d{3}Z$/, 'Z'))
             curr.setHours(curr.getHours() + 1)
         }
         return slots
@@ -47,6 +47,8 @@ const isPlanPossible = (quedada, participants) => {
 
     const compatibleCount = participants.filter(p => {
         const userSlots = p.disponibilidad || []
+        // Normalize user slots to match the new format if they were in the old local format
+        // This handles transition between old and new format
         return neededSlots.every(slot => userSlots.includes(slot))
     }).length
 
@@ -155,7 +157,8 @@ function GroupDetailsContent() {
                 schema: 'public',
                 table: 'ParticipacionQuedada'
             }, (payload) => {
-                // If the change is for the currently selected quedada, refresh details
+                // Refresh both list and details to update "Posible" tags
+                fetchQuedadas(groupId)
                 if (selectedQuedada && (payload.new?.id_quedada === selectedQuedada.id_quedada || payload.old?.id_quedada === selectedQuedada.id_quedada)) {
                     fetchQuedadaDetails(selectedQuedada.id_quedada)
                 }

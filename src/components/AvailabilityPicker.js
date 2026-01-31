@@ -67,15 +67,21 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
         setMyAvailability(mine?.disponibilidad || [])
     }
 
+    const getSlotId = (day, hour) => {
+        const d = new Date(day)
+        d.setHours(hour, 0, 0, 0)
+        return d.toISOString().replace(/\.\d{3}Z$/, 'Z')
+    }
+
     const toggleSlot = (day, hour) => {
-        const slot = `${day.toISOString().split('T')[0]}T${hour.toString().padStart(2, '0')}:00:00`
+        const slot = getSlotId(day, hour)
         setMyAvailability(prev =>
             prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]
         )
     }
 
     const handleMouseDown = (dayIdx, hourIdx, day, hour) => {
-        const slot = `${day.toISOString().split('T')[0]}T${hour.toString().padStart(2, '0')}:00:00`
+        const slot = getSlotId(day, hour)
         const alreadySelected = myAvailability.includes(slot)
 
         setIsDragging(true)
@@ -101,10 +107,10 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
 
         const slotsInRange = []
         for (let d = startDay; d <= endDay; d++) {
-            const dateStr = days[d].toISOString().split('T')[0]
+            const dayDate = days[d]
             for (let h = startHour; h <= endHour; h++) {
                 const hourVal = hours[h]
-                slotsInRange.push(`${dateStr}T${hourVal.toString().padStart(2, '0')}:00:00`)
+                slotsInRange.push(getSlotId(dayDate, hourVal))
             }
         }
 
@@ -130,8 +136,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
     }, [isDragging, dragStart, dragEnd, isSelecting])
 
     const toggleAllDay = (day) => {
-        const dateStr = day.toISOString().split('T')[0]
-        const daySlots = hours.map(h => `${dateStr}T${h.toString().padStart(2, '0')}:00:00`)
+        const daySlots = hours.map(h => getSlotId(day, h))
 
         const allAlreadySelected = daySlots.every(s => myAvailability.includes(s))
 
@@ -145,8 +150,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
     }
 
     const toggleAllHour = (hour) => {
-        const hourStr = hour.toString().padStart(2, '0')
-        const hourSlots = days.map(d => `${d.toISOString().split('T')[0]}T${hourStr}:00:00`)
+        const hourSlots = days.map(d => getSlotId(d, hour))
 
         const allAlreadySelected = hourSlots.every(s => myAvailability.includes(s))
 
@@ -176,7 +180,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
     }
 
     const getOccupancy = (day, hour) => {
-        const slot = `${day.toISOString().split('T')[0]}T${hour.toString().padStart(2, '0')}:00:00`
+        const slot = getSlotId(day, hour)
         return allParticipations.filter(p => p.disponibilidad?.includes(slot)).length
     }
 
@@ -187,8 +191,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
     }
 
     const getMaxOccupancyForDay = (day) => {
-        const dateStr = day.toISOString().split('T')[0]
-        const daySlots = hours.map(h => `${dateStr}T${h.toString().padStart(2, '0')}:00:00`)
+        const daySlots = hours.map(h => getSlotId(day, h))
         const maxVotes = daySlots.reduce((acc, slot) => {
             const count = allParticipations.filter(p => p.disponibilidad?.includes(slot)).length
             return Math.max(acc, count)
@@ -197,8 +200,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
     }
 
     const getMaxOccupancyForHour = (hour) => {
-        const hourStr = hour.toString().padStart(2, '0')
-        const hourSlots = days.map(d => `${d.toISOString().split('T')[0]}T${hourStr}:00:00`)
+        const hourSlots = days.map(d => getSlotId(d, hour))
         const maxVotes = hourSlots.reduce((acc, slot) => {
             const count = allParticipations.filter(p => p.disponibilidad?.includes(slot)).length
             return Math.max(acc, count)
@@ -249,7 +251,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                     {days.map((d, dIdx) => {
                         const maxOccDay = getMaxOccupancyForDay(d)
                         const totalParticipants = allParticipations.length || 1
-                        const allDaySelected = hours.every(h => myAvailability.includes(`${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`))
+                        const allDaySelected = hours.every(h => myAvailability.includes(getSlotId(d, h)))
 
                         return (
                             <div key={d.toISOString()} className="flex flex-col items-center gap-1 min-w-[60px]">
@@ -284,7 +286,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                     {/* Rows: Hours */}
                     {
                         hours.map(h => {
-                            const allSelected = days.every(d => myAvailability.includes(`${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`))
+                            const allSelected = days.every(d => myAvailability.includes(getSlotId(d, h)))
                             const maxOccHour = getMaxOccupancyForHour(h)
                             const totalParticipants = allParticipations.length || 1
 
@@ -315,7 +317,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                                     </div>
                                     {days.map((d, dIdx) => {
                                         const hIdx = hours.indexOf(h)
-                                        const slot = `${d.toISOString().split('T')[0]}T${h.toString().padStart(2, '0')}:00:00`
+                                        const slot = getSlotId(d, h)
 
                                         // Check if this slot is in the current drag range
                                         let isInDragRange = false
@@ -343,7 +345,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                                                 key={slot}
                                                 onMouseDown={() => handleMouseDown(dIdx, hIdx, d, h)}
                                                 onMouseEnter={() => handleMouseEnter(dIdx, hIdx)}
-                                                className={`h-20 w-full rounded-2xl cursor-pointer transition-all border-2 select-none flex items-center justify-center ${effectivelySelected ? 'border-green-600 ring-4 ring-green-100 shadow-sm scale-[1.02] z-10' : 'border-gray-100 hover:border-gray-200 shadow-sm'
+                                                className={`h-20 w-full rounded-2xl cursor-pointer transition-all border-2 select-none flex items-center justify-center ${effectivelySelected ? 'border-green-600 bg-green-50 ring-2 ring-green-100 shadow-sm z-10' : 'border-gray-100 hover:border-gray-200 shadow-sm'
                                                     }`}
                                                 style={{
                                                     backgroundColor: getColorForOccupancy(count, total)

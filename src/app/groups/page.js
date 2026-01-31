@@ -102,6 +102,8 @@ function GroupDetailsContent() {
         propuesta_inicio: '',
         propuesta_fin: ''
     })
+    const [showBestSlot, setShowBestSlot] = useState(false)
+    const [bestSlot, setBestSlot] = useState(null)
 
     useEffect(() => {
         loadData()
@@ -178,6 +180,7 @@ function GroupDetailsContent() {
 
     const selectQuedada = async (q) => {
         setIsEditingMeeting(false)
+        setShowBestSlot(false)
         const { proposal, description } = parseProposal(q.descripcion)
         setSelectedQuedada({ ...q, rawDescription: q.descripcion, description })
         setSelectedProposal(proposal)
@@ -222,6 +225,23 @@ function GroupDetailsContent() {
         setQuedadaParticipants(enhancedParts)
         const amIIn = enhancedParts.find(p => p.id_usuario === user.id)
         setIsParticipant(!!amIIn)
+
+        // Calculate best slot for creator convenience
+        const counts = {}
+        enhancedParts.forEach(p => {
+            (p.disponibilidad || []).forEach(slot => {
+                counts[slot] = (counts[slot] || 0) + 1
+            })
+        })
+        let max = 0
+        let best = null
+        for (const slot in counts) {
+            if (counts[slot] > max) {
+                max = counts[slot]
+                best = slot
+            }
+        }
+        setBestSlot(best ? { slot: best, count: max } : null)
     }
 
     const handleCreateWrapper = async () => {
@@ -528,7 +548,7 @@ function GroupDetailsContent() {
                                                                                     </span>
                                                                                 )}
                                                                             </div>
-                                                                            <p className="text-gray-500 text-sm font-medium">📅 {new Date(q.fecha_inicio).toLocaleDateString()}</p>
+                                                                            <p className="text-gray-500 text-sm font-medium">📅 Del {new Date(q.fecha_inicio).toLocaleDateString()} al {new Date(q.fecha_fin || q.fecha_inicio).toLocaleDateString()}</p>
                                                                             <p className="text-gray-400 text-xs mt-1 line-clamp-1">{parseProposal(q.descripcion).description}</p>
                                                                         </div>
 
@@ -836,16 +856,37 @@ function GroupDetailsContent() {
                                                 </div>
                                             </div>
                                             <div className="bg-green-50/50 p-4 rounded-xl border border-green-100/50">
-                                                <p className="text-sm font-bold text-green-900 mb-2 flex items-center gap-2">
-                                                    🎯 Horario Sugerido
+                                                <p className="text-sm font-bold text-green-900 mb-2 flex items-center justify-between">
+                                                    <span className="flex items-center gap-2">{showBestSlot ? '🔍 Momento más votado' : '🎯 Horario Sugerido'}</span>
+                                                    {quedadaParticipants.find(p => p.id_usuario === user.id)?.rol === 'Organizador' && bestSlot && (
+                                                        <button
+                                                            onClick={() => setShowBestSlot(!showBestSlot)}
+                                                            className="text-[10px] bg-green-200 text-green-800 px-2 py-1 rounded-lg uppercase tracking-widest hover:bg-green-300 transition-colors"
+                                                        >
+                                                            {showBestSlot ? 'Ver Sugerencia' : 'Ver más votado'}
+                                                        </button>
+                                                    )}
                                                 </p>
                                                 <div className="space-y-1">
-                                                    <p className="text-sm text-green-700">
-                                                        <span className="font-black">Del:</span> {selectedProposal ? new Date(selectedProposal.start).toLocaleString() : 'No especificado'}
-                                                    </p>
-                                                    <p className="text-sm text-green-700">
-                                                        <span className="font-black">Al:</span> {selectedProposal ? new Date(selectedProposal.end).toLocaleString() : 'No especificado'}
-                                                    </p>
+                                                    {showBestSlot && bestSlot ? (
+                                                        <div className="flex items-center gap-1 flex-wrap">
+                                                            <p className="text-sm text-green-700 font-black capitalize">
+                                                                {new Date(bestSlot.slot).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                                                            </p>
+                                                            <span className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded-full font-bold">
+                                                                {bestSlot.count} votos
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <p className="text-sm text-green-700">
+                                                                <span className="font-black">Del:</span> {selectedProposal ? new Date(selectedProposal.start).toLocaleString() : 'No especificado'}
+                                                            </p>
+                                                            <p className="text-sm text-green-700">
+                                                                <span className="font-black">Al:</span> {selectedProposal ? new Date(selectedProposal.end).toLocaleString() : 'No especificado'}
+                                                            </p>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="mt-4 pt-4 border-t border-gray-100">

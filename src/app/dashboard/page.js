@@ -148,27 +148,49 @@ export default function Dashboard() {
             return
         }
 
-        // Clean up any existing request (Delete then Insert is cleaner for permissions)
-        await supabase
+        // 1. Check if request exists (to avoid 409 Conflict)
+        const { data: existingRequest } = await supabase
             .from('SolicitudUnion')
-            .delete()
+            .select('id')
             .eq('id_usuario', user.id)
             .eq('id_grupo', targetGroup.id_grupo)
+            .maybeSingle() // Use maybeSingle to avoid 406 if not found
 
-        // Create new request
-        const { error: requestError } = await supabase
-            .from('SolicitudUnion')
-            .insert({
-                id_usuario: user.id,
-                id_grupo: targetGroup.id_grupo,
-                estado: 'pendiente'
-            })
+        if (existingRequest) {
+            // 2a. Update existing
+            const { error: updateError } = await supabase
+                .from('SolicitudUnion')
+                .update({ estado: 'pendiente' })
+                .eq('id', existingRequest.id)
 
-        if (requestError) {
-            setMsg('Error al enviar solicitud: ' + requestError.message)
+            if (updateError) {
+                console.error("Update failed:", updateError)
+                setMsg('Error: No se pudo reactivar la solicitud. Tienes permisos?')
+            } else {
+                setMsg(`Solicitud reactivada para ${targetGroup.nombre}. Espera al admin.`)
+                setJoinCode('')
+            }
         } else {
-            setMsg(`Solicitud enviada a ${targetGroup.nombre}. Espera a que el admin te acepte.`)
-            setJoinCode('')
+            // 2b. Insert new
+            const { error: requestError } = await supabase
+                .from('SolicitudUnion')
+                .insert({
+                    id_usuario: user.id,
+                    id_grupo: targetGroup.id_grupo,
+                    estado: 'pendiente'
+                })
+
+            if (requestError) {
+                // Determine if it really was a duplicate that we missed
+                if (requestError.code === '23505' || requestError.code === '409') {
+                    setMsg('Ya existe una solicitud. Intenta recargar la página.')
+                } else {
+                    setMsg('Error al enviar solicitud: ' + requestError.message)
+                }
+            } else {
+                setMsg(`Solicitud enviada a ${targetGroup.nombre}. Espera a que el admin te acepte.`)
+                setJoinCode('')
+            }
         }
     }
 

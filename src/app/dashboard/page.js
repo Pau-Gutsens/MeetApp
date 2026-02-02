@@ -154,7 +154,8 @@ export default function Dashboard() {
             .from('SolicitudUnion')
             .insert({
                 id_usuario: user.id,
-                id_grupo: targetGroup.id_grupo
+                id_grupo: targetGroup.id_grupo,
+                estado: 'pendiente'
             })
 
         if (requestError) {

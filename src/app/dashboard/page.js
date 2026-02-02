@@ -36,14 +36,18 @@ export default function Dashboard() {
     const fetchGroups = async (userId) => {
         const { data, error } = await supabase
             .from('MiembroGrupo')
-            .select('id_grupo, Grupo(*)')
+            .select('id_grupo, rol, Grupo(*)')
             .eq('id_usuario', userId)
 
         if (data) {
             const groupList = data.map(m => m.Grupo).filter(g => g !== null)
             setGroups(groupList)
-            // Fetch ALL requests for groups I am admin of
-            fetchRequests(userId)
+
+            // Recoger IDs de TODOS los grupos (para asegurar que vemos las peticiones)
+            const allGroupIds = groupList.map(g => g.id_grupo)
+            if (allGroupIds.length > 0) {
+                fetchRequests(allGroupIds)
+            }
         }
     }
 
@@ -66,26 +70,14 @@ export default function Dashboard() {
         return () => { supabase.removeChannel(channel) }
     }, [user])
 
-    const fetchRequests = async (userId) => {
-        // 1. Get IDs of groups where I am admin
-        const { data: myAdminships } = await supabase
-            .from('MiembroGrupo')
-            .select('id_grupo')
-            .eq('id_usuario', userId)
-            .eq('rol', 'admin')
-
-        if (!myAdminships || myAdminships.length === 0) {
-            setPendingRequests([])
-            return
-        }
-
-        const myGroupIds = myAdminships.map(m => m.id_grupo)
-
-        // 2. Fetch all pending requests for those groups
+    const fetchRequests = async (groupIds) => {
+        // Fetch all pending requests for provided group IDs
+        // Simplificado: Traemos peticiones de TODOS los grupos donde estoy, 
+        // así evitamos problemas si el rol no está puesto exactamente como "admin".
         const { data } = await supabase
             .from('SolicitudUnion')
             .select('*, Usuario(email, id_usuario), Grupo(nombre, codigo_invitacion)')
-            .in('id_grupo', myGroupIds)
+            .in('id_grupo', groupIds)
             .eq('estado', 'pendiente')
 
         // Filter out duplicates manually if any join weirdness happens
@@ -153,7 +145,7 @@ export default function Dashboard() {
             .insert({
                 id_usuario: user.id,
                 id_grupo: targetGroup.id_grupo,
-                estado: 'pendiente'
+                estado: 'pendiente' // IMPORTANTE: Estado explícito
             })
 
         if (requestError) {

@@ -148,19 +148,44 @@ export default function Dashboard() {
             return
         }
 
-        const { error: requestError } = await supabase
+        // Check if a request already exists
+        const { data: existingRequest } = await supabase
             .from('SolicitudUnion')
-            .insert({
-                id_usuario: user.id,
-                id_grupo: targetGroup.id_grupo,
-                estado: 'pendiente'
-            })
+            .select('id')
+            .eq('id_usuario', user.id)
+            .eq('id_grupo', targetGroup.id_grupo)
+            .single()
 
-        if (requestError) {
-            setMsg('Ya has solicitado unirte a este grupo o hubo un error.')
+        if (existingRequest) {
+            // Update existing request
+            const { error: updateError } = await supabase
+                .from('SolicitudUnion')
+                .update({ estado: 'pendiente' })
+                .eq('id', existingRequest.id)
+
+            if (updateError) {
+                setMsg('Error al reactivar solicitud: ' + updateError.message)
+            } else {
+                setMsg(`Solicitud reactivada para ${targetGroup.nombre}. Espera al admin.`)
+                setJoinCode('')
+            }
         } else {
-            setMsg(`Solicitud enviada a ${targetGroup.nombre}. Espera a que el admin te acepte.`)
-            setJoinCode('')
+            // Insert new request
+            const { error: requestError } = await supabase
+                .from('SolicitudUnion')
+                .insert({
+                    id_usuario: user.id,
+                    id_grupo: targetGroup.id_grupo,
+                    estado: 'pendiente'
+                })
+
+            if (requestError) {
+                // If it fails with duplicate key (race condition), standard msg
+                setMsg('Ya has solicitado unirte a este grupo o hubo un error.')
+            } else {
+                setMsg(`Solicitud enviada a ${targetGroup.nombre}. Espera a que el admin te acepte.`)
+                setJoinCode('')
+            }
         }
     }
 
@@ -172,7 +197,7 @@ export default function Dashboard() {
             .eq('id', request.id)
 
         if (updateError) {
-            alert(`Error al actualizar estado: ${updateError.message}`)
+            console.error("Error updating status:", updateError)
             return
         }
 
@@ -186,11 +211,16 @@ export default function Dashboard() {
             })
 
         if (insertError) {
-            // If already member, ignore
-            console.error("Error adding member:", insertError)
+            // Error 409 or 23505 means duplicate key (already member) -> We consider it success
+            if (insertError.code === '23505' || insertError.code === '409') {
+                console.log("El usuario ya era miembro, continuamos.")
+            } else {
+                console.error("Error adding member:", insertError)
+            }
         }
 
-        fetchGroups(user.id)
+        // Force refresh
+        await fetchGroups(user.id)
     }
 
     const handleRejectRequest = async (requestId) => {
@@ -203,6 +233,34 @@ export default function Dashboard() {
             alert(`Error al rechazar: ${error.message}`)
             return
         }
+        fetchGroups(user.id)
+    }
+
+    const handleLeaveGroup = async (groupId, groupName) => {
+        if (!window.confirm(`¿Seguro que quieres salir de "${groupName}"? Si eres el único admin, el grupo podría quedar huérfano.`)) {
+            return
+        }
+
+        // 1. Delete membership
+        const { error: leaveError } = await supabase
+            .from('MiembroGrupo')
+            .delete()
+            .eq('id_grupo', groupId)
+            .eq('id_usuario', user.id)
+
+        if (leaveError) {
+            alert(`Error al salir: ${leaveError.message}`)
+            return
+        }
+
+        // 2. Delete existing request (so they can apply again cleanly)
+        // We ignore error here because maybe the request doesn't exist (if they were added manually)
+        await supabase
+            .from('SolicitudUnion')
+            .delete()
+            .eq('id_grupo', groupId)
+            .eq('id_usuario', user.id)
+
         fetchGroups(user.id)
     }
 
@@ -331,12 +389,29 @@ export default function Dashboard() {
                     <div className="animate-fade-in space-y-4">
                         <h2 className="text-2xl font-black text-indigo-900 uppercase tracking-tighter mb-6">Mis Grupos</h2>
                         {groups.map(g => (
-                            <Link key={g.id_grupo} href={`/groups?id=${g.id_grupo}`} className="block group relative">
-                                <div className="bg-white p-6 rounded-2xl shadow-md border-2 border-indigo-50 hover:border-indigo-500 hover:shadow-xl transition-all flex justify-between items-center transform hover:-translate-y-1">
-                                    <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">{g.nombre}</h3>
+                            <div key={g.id_grupo} className="bg-white p-6 rounded-2xl shadow-md border-2 border-indigo-50 hover:border-indigo-500 hover:shadow-xl transition-all flex justify-between items-center transform hover:-translate-y-1 group relative">
+                                <Link href={`/groups?id=${g.id_grupo}`} className="absolute inset-0 z-0"></Link>
+
+                                <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight relative z-10 pointer-events-none">{g.nombre}</h3>
+
+                                <div className="flex items-center gap-3 relative z-10">
                                     <span className="bg-indigo-50 text-indigo-600 font-bold px-3 py-1 rounded-lg text-xs tracking-widest">{g.codigo_invitacion?.toUpperCase()}</span>
+
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
+                                            handleLeaveGroup(g.id_grupo, g.nombre);
+                                        }}
+                                        className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                        title="Salir y borrar grupo de mi lista"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
                                 </div>
-                            </Link>
+                            </div>
                         ))}
                     </div>
                 )}

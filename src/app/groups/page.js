@@ -145,7 +145,6 @@ function GroupDetailsContent() {
 
         } catch (error) {
             console.error('Error uploading photo:', error)
-            alert('Error subiendo foto: ' + (error.message || 'Error desconocido'))
             setPreviewUrl(null) // Revert preview on error
         } finally {
             setUploadingPhoto(false)
@@ -168,7 +167,6 @@ function GroupDetailsContent() {
             loadData() // Refresh to sync everywhere
         } catch (error) {
             console.error('Error updating identity:', error)
-            alert('Error al guardar cambios: ' + error.message)
         }
     }
 
@@ -383,7 +381,6 @@ function GroupDetailsContent() {
             } else {
                 // Join
                 if (quedada.ParticipacionQuedada?.length >= quedada.aforo_max) {
-                    alert('Esta quedada ya ha alcanzado el aforo máximo. 🛑')
                     return
                 }
                 await supabase
@@ -401,7 +398,7 @@ function GroupDetailsContent() {
             if (selectedQuedada?.id_quedada === quedada.id_quedada) {
                 await fetchQuedadaDetails(quedada.id_quedada)
             }
-        } catch (e) { alert(e.message) }
+        } catch (e) { console.error(e) }
     }
 
     const handleFinalize = async (quedadaId) => {
@@ -411,7 +408,7 @@ function GroupDetailsContent() {
             .eq('id_quedada', quedadaId)
 
         if (!error) fetchQuedadas(groupId)
-        else alert(error.message)
+        else console.error(error.message)
     }
 
     const handleDiscard = async (quedadaId) => {
@@ -423,7 +420,7 @@ function GroupDetailsContent() {
             .eq('id_quedada', quedadaId)
 
         if (!error) fetchQuedadas(groupId)
-        else alert(error.message)
+        else console.error(error.message)
     }
 
     const handleUpdateMeeting = async () => {
@@ -463,7 +460,7 @@ function GroupDetailsContent() {
                 aforo_max: editFormData.aforo_max
             }))
             setSelectedProposal(newProposal)
-        } catch (e) { alert(e.message) }
+        } catch (e) { console.error(e) }
     }
 
     if (loading) return <div className="p-8">Cargando...</div>

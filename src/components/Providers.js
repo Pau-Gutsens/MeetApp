@@ -1,11 +1,14 @@
 'use client'
 
 import { AuthProvider } from '@/context/AuthContext'
+import { SettingsProvider } from '@/context/SettingsContext'
 
 export function Providers({ children }) {
     return (
-        <AuthProvider>
-            {children}
-        </AuthProvider>
+        <SettingsProvider>
+            <AuthProvider>
+                {children}
+            </AuthProvider>
+        </SettingsProvider>
     )
 }

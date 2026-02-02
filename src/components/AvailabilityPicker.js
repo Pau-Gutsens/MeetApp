@@ -1,8 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { useSettings } from '@/context/SettingsContext'
 
 export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
+    const { settings } = useSettings()
+    const { gridSize } = settings || { gridSize: 1 } // Fallback
+
     const [myAvailability, setMyAvailability] = useState([])
     const [allParticipations, setAllParticipations] = useState([])
     const [saving, setSaving] = useState(false)
@@ -245,7 +249,7 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
             </div>
 
             <div className="overflow-x-auto pb-4 custom-scrollbar">
-                <div className="grid gap-3 w-full min-w-max" style={{ gridTemplateColumns: `auto repeat(${days.length}, minmax(130px, 1fr))` }}>
+                <div className="grid gap-3 w-full min-w-max" style={{ gridTemplateColumns: `auto repeat(${days.length}, minmax(${130 * gridSize}px, 1fr))` }}>
                     {/* Header: Days */}
                     <div />
                     {days.map((d, dIdx) => {
@@ -345,10 +349,11 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                                                 key={slot}
                                                 onMouseDown={() => handleMouseDown(dIdx, hIdx, d, h)}
                                                 onMouseEnter={() => handleMouseEnter(dIdx, hIdx)}
-                                                className={`h-20 w-full rounded-2xl cursor-pointer transition-all border-2 select-none flex items-center justify-center ${effectivelySelected ? 'border-green-600 bg-green-50 ring-2 ring-green-100 shadow-sm z-10' : 'border-gray-100 hover:border-gray-200 shadow-sm'
+                                                className={`w-full rounded-2xl cursor-pointer transition-all border-2 select-none flex items-center justify-center ${effectivelySelected ? 'border-green-600 bg-green-50 ring-2 ring-green-100 shadow-sm z-10' : 'border-gray-100 hover:border-gray-200 shadow-sm'
                                                     }`}
                                                 style={{
-                                                    backgroundColor: getColorForOccupancy(count, total)
+                                                    backgroundColor: getColorForOccupancy(count, total),
+                                                    height: `${80 * gridSize}px`
                                                 }}
                                                 title={count > 0 ? `Asisten: ${names}` : 'Nadie disponible'}
                                             >

@@ -19,6 +19,15 @@
   }
 }
 
+:root[class~="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+/* Force dark variant to work with class in v4 if supported via CSS, or standard utility overriding */
+/* To stay safe, I will just rely on the variables for background/foreground, and assume standard dark: classes might need the variant definition if using v4 without config. */
+/* However, usually v4 detects this. Let's just add the variables for now. */
+
 body {
   background: var(--background);
   color: var(--foreground);

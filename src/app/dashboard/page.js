@@ -148,44 +148,27 @@ export default function Dashboard() {
             return
         }
 
-        // Check if a request already exists
-        const { data: existingRequest } = await supabase
+        // Clean up any existing request (Delete then Insert is cleaner for permissions)
+        await supabase
             .from('SolicitudUnion')
-            .select('id')
+            .delete()
             .eq('id_usuario', user.id)
             .eq('id_grupo', targetGroup.id_grupo)
-            .single()
 
-        if (existingRequest) {
-            // Update existing request
-            const { error: updateError } = await supabase
-                .from('SolicitudUnion')
-                .update({ estado: 'pendiente' })
-                .eq('id', existingRequest.id)
+        // Create new request
+        const { error: requestError } = await supabase
+            .from('SolicitudUnion')
+            .insert({
+                id_usuario: user.id,
+                id_grupo: targetGroup.id_grupo,
+                estado: 'pendiente'
+            })
 
-            if (updateError) {
-                setMsg('Error al reactivar solicitud: ' + updateError.message)
-            } else {
-                setMsg(`Solicitud reactivada para ${targetGroup.nombre}. Espera al admin.`)
-                setJoinCode('')
-            }
+        if (requestError) {
+            setMsg('Error al enviar solicitud: ' + requestError.message)
         } else {
-            // Insert new request
-            const { error: requestError } = await supabase
-                .from('SolicitudUnion')
-                .insert({
-                    id_usuario: user.id,
-                    id_grupo: targetGroup.id_grupo,
-                    estado: 'pendiente'
-                })
-
-            if (requestError) {
-                // If it fails with duplicate key (race condition), standard msg
-                setMsg('Ya has solicitado unirte a este grupo o hubo un error.')
-            } else {
-                setMsg(`Solicitud enviada a ${targetGroup.nombre}. Espera a que el admin te acepte.`)
-                setJoinCode('')
-            }
+            setMsg(`Solicitud enviada a ${targetGroup.nombre}. Espera a que el admin te acepte.`)
+            setJoinCode('')
         }
     }
 
@@ -258,8 +241,8 @@ export default function Dashboard() {
         await supabase
             .from('SolicitudUnion')
             .delete()
+            .eq('id_usuario', user.id) // Corrected from eq(id_grupo, id_grupo) combined
             .eq('id_grupo', groupId)
-            .eq('id_usuario', user.id)
 
         fetchGroups(user.id)
     }
@@ -289,6 +272,12 @@ export default function Dashboard() {
                                 📬 Solicitudes
                                 <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">{pendingRequests.length}</span>
                             </h2>
+                            <button
+                                onClick={() => fetchGroups(user.id)}
+                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 uppercase"
+                            >
+                                Actualizar
+                            </button>
                         </div>
 
                         <div className="grid gap-4">

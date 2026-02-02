@@ -42,66 +42,64 @@ export default function Dashboard() {
         if (data) {
             const groupList = data.map(m => m.Grupo).filter(g => g !== null)
             setGroups(groupList)
-            // Fetch requests for all groups the user is in
-            groupList.forEach(g => fetchRequests(g.id_grupo))
+            // Fetch ALL requests for groups I am admin of
+            fetchRequests(userId)
         }
     }
 
+    // Consolidated global listener for requests
     useEffect(() => {
         if (!user) return
 
-        // Requester side: Listen for my own request updates
-        const myRequestsChannel = supabase
-            .channel(`my-requests-${user.id}`)
+        const channel = supabase
+            .channel(`global-requests`)
             .on('postgres_changes', {
-                event: 'UPDATE',
+                event: '*',
                 schema: 'public',
-                table: 'SolicitudUnion',
-                filter: `id_usuario=eq.${user.id}`
-            }, (payload) => {
-                if (payload.new.estado === 'aceptada') {
-                    fetchGroups(user.id)
-                }
-                // Update local msg state if needed
-                setMsg(payload.new.estado === 'aceptada' ? '¡Solicitud aceptada!' : 'Solicitud rechazada.')
+                table: 'SolicitudUnion'
+            }, () => {
+                // Refresh both groups (in case I was accepted) and requests (in case someone applied)
+                fetchGroups(user.id)
             })
             .subscribe()
 
-        return () => { supabase.removeChannel(myRequestsChannel) }
+        return () => { supabase.removeChannel(channel) }
     }, [user])
 
-    useEffect(() => {
-        if (groups.length === 0) return
+    const fetchRequests = async (userId) => {
+        // 1. Get IDs of groups where I am admin
+        const { data: myAdminships } = await supabase
+            .from('MiembroGrupo')
+            .select('id_grupo')
+            .eq('id_usuario', userId)
+            .eq('rol', 'admin')
 
-        const channels = groups.map(g => {
-            return supabase
-                .channel(`requests-${g.id_grupo}`)
-                .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'SolicitudUnion',
-                    filter: `id_grupo=eq.${g.id_grupo}`
-                }, () => {
-                    fetchRequests(g.id_grupo)
-                })
-                .subscribe()
-        })
+        if (!myAdminships || myAdminships.length === 0) {
+            setPendingRequests([])
+            return
+        }
 
-        return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
-    }, [groups])
+        const myGroupIds = myAdminships.map(m => m.id_grupo)
 
-    const fetchRequests = async (groupId) => {
+        // 2. Fetch all pending requests for those groups
         const { data } = await supabase
             .from('SolicitudUnion')
-            .select('*, Usuario(email, id_usuario), Grupo(nombre)')
-            .eq('id_grupo', groupId)
+            .select('*, Usuario(email, id_usuario), Grupo(nombre, codigo_invitacion)')
+            .in('id_grupo', myGroupIds)
             .eq('estado', 'pendiente')
 
-        setPendingRequests(prev => {
-            // Merge results and avoid duplicates
-            const otherGroups = prev.filter(p => p.id_grupo !== groupId)
-            return [...otherGroups, ...(data || [])]
-        })
+        // Filter out duplicates manually if any join weirdness happens
+        const unique = []
+        const map = new Map()
+        if (data) {
+            for (const item of data) {
+                if (!map.has(item.id)) {
+                    map.set(item.id, true)
+                    unique.push(item)
+                }
+            }
+        }
+        setPendingRequests(unique)
     }
 
     const handleCreate = async () => {
@@ -176,10 +174,18 @@ export default function Dashboard() {
             alert(`Error al aceptar: ${error.message}`)
             return
         }
-        fetchRequests(request.id_grupo)
+
+        // Add member to group
+        await supabase.from('MiembroGrupo').insert({
+            id_usuario: request.id_usuario,
+            id_grupo: request.id_grupo,
+            rol: 'miembro'
+        })
+
+        fetchGroups(user.id)
     }
 
-    const handleRejectRequest = async (requestId, groupId) => {
+    const handleRejectRequest = async (requestId) => {
         const { error } = await supabase
             .from('SolicitudUnion')
             .update({ estado: 'rechazada' })
@@ -189,9 +195,8 @@ export default function Dashboard() {
             alert(`Error al rechazar: ${error.message}`)
             return
         }
-        fetchRequests(groupId)
+        fetchGroups(user.id)
     }
-
 
 
     if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl text-indigo-600 uppercase tracking-tighter animate-pulse">Cargando...</div>
@@ -214,6 +219,58 @@ export default function Dashboard() {
 
             {/* MAIN CONTENT AREA */}
             <div className="max-w-full mx-auto pt-24 pb-32 px-6 lg:px-12">
+
+                {/* --- SECCIÓN DE SOLICITUDES (NUEVA Y PROMINENTE) --- */}
+                {pendingRequests.length > 0 && viewMode === 'main' && (
+                    <div className="mb-12 animate-fade-in-down">
+                        <div className="flex items-center gap-3 mb-6">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white font-black text-sm animate-pulse">
+                                {pendingRequests.length}
+                            </span>
+                            <h2 className="text-2xl font-black uppercase tracking-tighter text-indigo-900">
+                                Solicitudes de Acceso
+                            </h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {pendingRequests.map(req => (
+                                <div key={req.id} className="bg-white p-6 rounded-3xl shadow-xl border-2 border-indigo-500 relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-bl-xl">
+                                        Pendiente
+                                    </div>
+                                    <p className="text-xs font-black uppercase text-indigo-400 mb-1">Quiere entrar a</p>
+                                    <h3 className="text-xl font-black text-gray-900 mb-4">{req.Grupo?.nombre}</h3>
+
+                                    <div className="flex items-center gap-3 mb-6 bg-gray-50 p-3 rounded-2xl">
+                                        <div className="h-10 w-10 bg-indigo-200 rounded-full flex items-center justify-center text-indigo-700 font-bold">
+                                            {req.Usuario?.email?.[0].toUpperCase()}
+                                        </div>
+                                        <div className="overflow-hidden">
+                                            <p className="text-sm font-bold text-gray-800 truncate">{req.Usuario?.email}</p>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase">Usuario</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => handleRejectRequest(req.id)}
+                                            className="flex-1 py-3 border-2 border-red-100 text-red-500 font-black uppercase rounded-xl hover:bg-red-50 hover:border-red-200 transition-all text-sm"
+                                        >
+                                            Rechazar
+                                        </button>
+                                        <button
+                                            onClick={() => handleAcceptRequest(req)}
+                                            className="flex-1 py-3 bg-indigo-600 text-white font-black uppercase rounded-xl shadow-lg hover:bg-indigo-700 hover:shadow-indigo-500/30 transition-all text-sm"
+                                        >
+                                            Aceptar
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="h-px bg-gray-200 w-full mt-12"></div>
+                    </div>
+                )}
 
                 {/* CASE: NO GROUPS OR EXPLICIT CREATE/JOIN MODE */}
                 {(groups.length === 0 || viewMode === 'create' || viewMode === 'join') ? (
@@ -308,30 +365,6 @@ export default function Dashboard() {
                                 </Link>
                             ))}
                         </div>
-
-                        {/* Notifications section */}
-                        {pendingRequests.length > 0 && (
-                            <div className="mt-16 bg-white p-6 rounded-3xl shadow-lg border border-indigo-50">
-                                <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400 mb-6 flex items-center gap-2">
-                                    <span className="h-2 w-2 bg-indigo-500 rounded-full animate-ping"></span>
-                                    Solicitudes Pendientes
-                                </h3>
-                                <div className="space-y-3">
-                                    {pendingRequests.map(req => (
-                                        <div key={req.id} className="flex items-center justify-between p-3 bg-indigo-50 rounded-xl">
-                                            <div>
-                                                <p className="text-[10px] font-black uppercase text-indigo-400">{req.Grupo?.nombre}</p>
-                                                <p className="text-xs font-bold text-gray-700">{req.Usuario?.email}</p>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => handleRejectRequest(req.id, req.id_grupo)} className="px-3 py-1 text-red-600 font-black text-[10px] uppercase hover:bg-red-50 rounded-lg transition-colors">No</button>
-                                                <button onClick={() => handleAcceptRequest(req)} className="px-3 py-1 bg-indigo-600 text-white rounded-lg font-black text-[10px] uppercase shadow-sm hover:bg-indigo-700 transition-all">Sí</button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>

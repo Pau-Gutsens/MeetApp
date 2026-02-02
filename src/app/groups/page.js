@@ -104,6 +104,73 @@ function GroupDetailsContent() {
     })
     const [showBestSlot, setShowBestSlot] = useState(false)
     const [bestSlot, setBestSlot] = useState(null)
+    const [isEditingIdentity, setIsEditingIdentity] = useState(false)
+    const [uploadingPhoto, setUploadingPhoto] = useState(false)
+    const [previewUrl, setPreviewUrl] = useState(null)
+
+    const handlePhotoUpload = async (e) => {
+        try {
+            setUploadingPhoto(true)
+            const file = e.target.files?.[0]
+            if (!file) return
+
+            const fileExt = file.name.split('.').pop()
+            const fileName = `${groupId}/${user.id}-${Date.now()}.${fileExt}`
+            const filePath = `${fileName}`
+
+            // 1. Upload to Supabase Storage
+            const { error: uploadError } = await supabase.storage
+                .from('Fotos-perfil')
+                .upload(filePath, file)
+
+            if (uploadError) throw uploadError
+
+            // 2. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('Fotos-perfil')
+                .getPublicUrl(filePath)
+
+            // 3. Update State & DB
+            setPreviewUrl(publicUrl)
+            const { error: dbError } = await supabase
+                .from('MiembroGrupo')
+                .update({ url_foto: publicUrl })
+                .eq('id_grupo', groupId)
+                .eq('id_usuario', user.id)
+
+            if (dbError) throw dbError
+
+            // 4. Update local membership state to reflect change immediately
+            setMyMembership(prev => ({ ...prev, url_foto: publicUrl }))
+
+        } catch (error) {
+            console.error('Error uploading photo:', error)
+            alert('Error subiendo foto: ' + (error.message || 'Error desconocido'))
+            setPreviewUrl(null) // Revert preview on error
+        } finally {
+            setUploadingPhoto(false)
+        }
+    }
+
+    const handleUpdateIdentity = async () => {
+        try {
+            const { error } = await supabase
+                .from('MiembroGrupo')
+                .update({ apodo: myApodo })
+                .eq('id_grupo', groupId)
+                .eq('id_usuario', user.id)
+
+            if (error) throw error
+
+            setIsEditingIdentity(false)
+            setMsg('Identidad actualizada')
+            setTimeout(() => setMsg(''), 2000)
+            loadData() // Refresh to sync everywhere
+        } catch (error) {
+            console.error('Error updating identity:', error)
+            alert('Error al guardar cambios: ' + error.message)
+        }
+    }
 
     useEffect(() => {
         loadData()
@@ -405,17 +472,26 @@ function GroupDetailsContent() {
     return (
         <div className="min-h-screen bg-gray-50 relative p-6 font-sans">
             {/* PROFILE BUTTON: Top Left */}
-            <Link
-                href="/profile"
-                className="absolute top-6 left-6 z-50 bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-transform"
-                title="Ver Perfil"
+            {/* PROFILE BUTTON: Top Left (NOW GROUP IDENTITY) */}
+            <div
+                onClick={() => setIsEditingIdentity(true)}
+                className="absolute top-6 left-6 z-50 bg-white p-2 rounded-full shadow-lg hover:bg-gray-100 transition-transform cursor-pointer flex items-center gap-2 pr-4 border border-gray-100"
+                title="Tu Identidad en este Grupo"
             >
-                <div className="h-8 w-8 text-black">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+                <div className="h-8 w-8 rounded-full bg-gray-200 overflow-hidden relative border border-gray-300">
+                    {myMembership?.url_foto ? (
+                        <img src={myMembership.url_foto} alt="Me" className="h-full w-full object-cover" />
+                    ) : (
+                        <div className="h-full w-full flex items-center justify-center text-gray-400 font-bold text-xs">
+                            {user?.email?.[0].toUpperCase()}
+                        </div>
+                    )}
                 </div>
-            </Link>
+                <div className="flex flex-col">
+                    <span className="text-xs font-bold text-gray-900 leading-tight max-w-[100px] truncate">{myApodo || 'Sin apodo'}</span>
+                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">TÚ</span>
+                </div>
+            </div>
 
             <div className="max-w-full mx-auto pt-16 px-6 lg:px-12">
 
@@ -423,39 +499,62 @@ function GroupDetailsContent() {
                 <div className="mb-8">
                     <div className="flex justify-between items-start mb-6">
                         <h1 className="text-4xl font-bold text-gray-900">{group.nombre}</h1>
-                        <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 flex gap-4 items-center">
-                            <div>
-                                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Apodo</p>
-                                <div className="flex items-center gap-2">
-                                    {isEditingApodo ? (
-                                        <input
-                                            autoFocus
-                                            className="bg-white border border-indigo-200 rounded px-2 py-0.5 text-xs font-bold w-24 text-black"
-                                            value={myApodo}
-                                            onChange={e => setMyApodo(e.target.value)}
-                                            onBlur={async () => {
-                                                setIsEditingApodo(false)
-                                                await supabase.from('MiembroGrupo').update({ apodo: myApodo }).eq('id_grupo', groupId).eq('id_usuario', user.id)
-                                                if (selectedQuedada) fetchQuedadaDetails(selectedQuedada.id_quedada)
-                                            }}
-                                            onKeyDown={async (e) => {
-                                                if (e.key === 'Enter') e.currentTarget.blur()
-                                            }}
-                                        />
-                                    ) : (
-                                        <p onClick={() => setIsEditingApodo(true)} className="text-sm font-black text-indigo-700 cursor-pointer hover:underline">
-                                            {myApodo || 'Sin apodo'}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="w-px h-8 bg-indigo-100" />
-                            <div>
-                                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Código</p>
-                                <p className="text-lg font-black text-indigo-700 tracking-widest">{group.codigo_invitacion?.toUpperCase()}</p>
-                            </div>
+
+                        {/* Group Code Display (Restored) */}
+                        <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 flex flex-col items-center">
+                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Código Invitación</p>
+                            <p className="text-lg font-black text-indigo-700 tracking-widest leading-none mt-1 select-all cursor-pointer" onClick={() => navigator.clipboard.writeText(group.codigo_invitacion)} title="Copiar">{group.codigo_invitacion?.toUpperCase()}</p>
                         </div>
                     </div>
+
+                    {/* IDENTITY MODAL */}
+                    {isEditingIdentity && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                            <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm relative">
+                                <button onClick={() => setIsEditingIdentity(false)} className="absolute top-4 right-4 text-gray-400 hover:text-black">
+                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+
+                                <h3 className="text-xl font-black text-gray-900 mb-6 text-center">TU IDENTIDAD EN EL GRUPO</h3>
+
+                                <div className="flex flex-col items-center gap-6">
+                                    {/* Photo Upload */}
+                                    <div className="relative group">
+                                        <div className="h-24 w-24 rounded-full bg-gray-100 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center">
+                                            {previewUrl || myMembership?.url_foto ? (
+                                                <img src={previewUrl || myMembership.url_foto} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <span className="text-4xl text-gray-300">USER</span>
+                                            )}
+                                        </div>
+                                        <label className="absolute bottom-0 right-0 bg-black text-white p-2 rounded-full cursor-pointer shadow-md hover:scale-110 transition-transform">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                            <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} disabled={uploadingPhoto} />
+                                        </label>
+                                        {uploadingPhoto && <div className="absolute inset-0 bg-white/50 flex items-center justify-center rounded-full"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-black"></div></div>}
+                                    </div>
+
+                                    {/* Nickname Input */}
+                                    <div className="w-full">
+                                        <label className="text-xs font-black text-gray-400 uppercase ml-2 mb-1 block">Tu Apodo</label>
+                                        <input
+                                            className="w-full bg-gray-50 border-none rounded-xl p-3 font-bold text-gray-900 focus:ring-2 focus:ring-indigo-500"
+                                            value={myApodo}
+                                            onChange={e => setMyApodo(e.target.value)}
+                                            placeholder="Ej. 'El Risas'"
+                                        />
+                                    </div>
+
+                                    <button
+                                        onClick={handleUpdateIdentity}
+                                        className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all uppercase tracking-wide"
+                                    >
+                                        Guardar Cambios
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="flex space-x-1 bg-gray-200 p-1 rounded-xl w-fit">
                         <button

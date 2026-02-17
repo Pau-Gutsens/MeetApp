@@ -21,6 +21,7 @@ export function SettingsProvider({ children }) {
 
                 // Apply initial effects
                 if (parsed.darkMode) document.documentElement.classList.add('dark')
+                else document.documentElement.classList.remove('dark')
                 document.documentElement.style.fontSize = `${parsed.fontSize}px`
             } catch (e) {
                 console.error("Failed to parse settings", e)

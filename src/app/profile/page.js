@@ -128,13 +128,13 @@ export default function ProfilePage() {
     if (loading) return <div className="h-screen flex items-center justify-center font-black text-xl animate-pulse">Cargando perfil...</div>
 
     return (
-        <div className="min-h-screen bg-white pb-20 relative font-sans">
+        <div className="min-h-screen bg-white dark:bg-slate-950 pb-20 relative font-sans transition-colors duration-300">
             {/* Nav */}
-            <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white/90 backdrop-blur z-40">
-                <Link href="/dashboard" className="text-gray-500 hover:text-gray-900 font-bold">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-slate-800 sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-40">
+                <Link href="/dashboard" className="text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white font-bold">
                     &larr; Volver
                 </Link>
-                <h1 className="text-xl font-black uppercase tracking-widest text-indigo-900">MI PERFIL</h1>
+                <h1 className="text-xl font-black uppercase tracking-widest text-indigo-900 dark:text-indigo-400">MI PERFIL</h1>
                 <div className="w-8"></div> {/* Spacer */}
             </div>
 
@@ -151,73 +151,73 @@ export default function ProfilePage() {
                             value={nombre}
                             onChange={e => setNombre(e.target.value)}
                             placeholder="Tu Nombre"
-                            className="text-center text-2xl font-black text-gray-900 bg-transparent border-b-2 border-transparent focus:border-indigo-500 focus:outline-none w-full mb-2 placeholder-gray-300"
+                            className="text-center text-2xl font-black text-gray-900 dark:text-white bg-transparent border-b-2 border-transparent focus:border-indigo-500 focus:outline-none w-full mb-2 placeholder-gray-300 dark:placeholder-slate-700"
                         />
-                        <p className="text-gray-400 text-sm font-medium">{user?.email}</p>
+                        <p className="text-gray-400 dark:text-slate-500 text-sm font-medium">{user?.email}</p>
 
-                        {/* Save Button (Only shows if typing? Or always? Let's keep it simple) */}
+                        {/* Save Button */}
                         <button
                             disabled={saving}
-                            className="mt-4 px-6 py-2 bg-gray-900 text-white rounded-full text-xs font-bold uppercase tracking-wider shadow-lg hover:scale-105 transition-transform"
+                            className="mt-4 px-6 py-2 bg-gray-900 dark:bg-indigo-600 text-white rounded-full text-xs font-bold uppercase tracking-wider shadow-lg hover:scale-105 transition-transform"
                         >
                             {saving ? '...' : 'Guardar Nombre'}
                         </button>
-                        {message && <p className="text-green-500 text-xs font-bold mt-2">{message}</p>}
+                        {message && <p className="text-green-500 dark:text-green-400 text-xs font-bold mt-2">{message}</p>}
                     </form>
                 </div>
 
                 {/* Global Stats Row */}
                 <div className="grid grid-cols-2 gap-4 mb-10">
-                    <div className="bg-indigo-50 p-5 rounded-3xl border border-indigo-100 flex flex-col items-center">
-                        <span className="text-3xl font-black text-indigo-600">{globalMemories}</span>
-                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-wide mt-1">Recuerdos</span>
+                    <div className="bg-indigo-50 dark:bg-indigo-950/30 p-5 rounded-3xl border border-indigo-100 dark:border-indigo-900/50 flex flex-col items-center">
+                        <span className="text-3xl font-black text-indigo-600 dark:text-indigo-400">{globalMemories}</span>
+                        <span className="text-xs font-bold text-indigo-400 dark:text-indigo-500 uppercase tracking-wide mt-1">Recuerdos</span>
                     </div>
-                    <div className="bg-purple-50 p-5 rounded-3xl border border-purple-100 flex flex-col items-center">
-                        <span className="text-3xl font-black text-purple-600">{stats.reduce((acc, curr) => acc + curr.attended, 0)}</span>
-                        <span className="text-xs font-bold text-purple-400 uppercase tracking-wide mt-1">Quedadas</span>
+                    <div className="bg-purple-50 dark:bg-purple-950/30 p-5 rounded-3xl border border-purple-100 dark:border-purple-900/50 flex flex-col items-center">
+                        <span className="text-3xl font-black text-purple-600 dark:text-purple-400">{stats.reduce((acc, curr) => acc + curr.attended, 0)}</span>
+                        <span className="text-xs font-bold text-purple-400 dark:text-purple-500 uppercase tracking-wide mt-1">Quedadas</span>
                     </div>
                 </div>
 
-                <div className="border-t border-gray-100 my-8"></div>
+                <div className="border-t border-gray-100 dark:border-slate-800 my-8"></div>
 
                 {/* Group Stats */}
-                <h2 className="text-lg font-black uppercase tracking-tight text-gray-800 mb-6">Estadísticas por Grupo</h2>
+                <h2 className="text-lg font-black uppercase tracking-tight text-gray-800 dark:text-slate-200 mb-6">Estadísticas por Grupo</h2>
 
                 {stats.length === 0 ? (
-                    <p className="text-center text-gray-400 italic">No perteneces a ningún grupo aún.</p>
+                    <p className="text-center text-gray-400 dark:text-slate-600 italic">No perteneces a ningún grupo aún.</p>
                 ) : (
                     <div className="space-y-4">
                         {stats.map(g => (
-                            <div key={g.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 relative overflow-hidden">
+                            <div key={g.id} className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-100 dark:border-slate-700 p-5 relative overflow-hidden transition-colors">
                                 {/* Decorator */}
-                                <div className="absolute top-0 right-0 w-20 h-20 bg-gray-50 rounded-bl-[4rem] -mr-4 -mt-4 z-0"></div>
+                                <div className="absolute top-0 right-0 w-20 h-20 bg-gray-50 dark:bg-slate-900/50 rounded-bl-[4rem] -mr-4 -mt-4 z-0"></div>
 
                                 <div className="relative z-10">
-                                    <h3 className="text-lg font-black text-gray-800 uppercase mb-4">{g.name}</h3>
+                                    <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase mb-4">{g.name}</h3>
 
                                     <div className="flex items-end justify-between mb-2">
                                         <div className="flex flex-col">
-                                            <span className="text-xs text-gray-400 font-bold uppercase">Asistencia</span>
+                                            <span className="text-xs text-gray-400 dark:text-slate-500 font-bold uppercase">Asistencia</span>
                                             <div className="flex items-baseline gap-1">
-                                                <span className="text-2xl font-black text-indigo-600">{g.attended}</span>
-                                                <span className="text-sm font-bold text-gray-400">/ {g.total}</span>
+                                                <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{g.attended}</span>
+                                                <span className="text-sm font-bold text-gray-400 dark:text-slate-500">/ {g.total}</span>
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <span className="text-3xl font-black text-gray-200">{g.percent}%</span>
+                                            <span className="text-3xl font-black text-gray-200 dark:text-slate-700">{g.percent}%</span>
                                         </div>
                                     </div>
 
                                     {/* Progress Bar */}
-                                    <div className="w-full bg-gray-100 rounded-full h-3 mb-4 overflow-hidden">
+                                    <div className="w-full bg-gray-100 dark:bg-slate-900 rounded-full h-3 mb-4 overflow-hidden">
                                         <div
-                                            className="bg-indigo-500 h-full rounded-full transition-all duration-1000 ease-out"
+                                            className="bg-indigo-500 dark:bg-indigo-600 h-full rounded-full transition-all duration-1000 ease-out"
                                             style={{ width: `${g.percent}%` }}
                                         ></div>
                                     </div>
 
-                                    <div className="flex items-center gap-2 text-xs font-bold text-gray-400">
-                                        <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <div className="flex items-center gap-2 text-xs font-bold text-gray-400 dark:text-slate-500">
+                                        <svg className="w-4 h-4 text-purple-400 dark:text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
                                         {g.memories} Recuerdos en este grupo

@@ -285,22 +285,22 @@ export default function GroupCalendar({ groupId, userId, initialSelectedId }) {
         }
     }
 
-    if (loading) return <div>Cargando recuerdos...</div>
+    if (loading) return <div className="p-8 text-gray-500 dark:text-slate-400">Cargando recuerdos...</div>
 
     return (
         <div className="flex flex-col md:flex-row gap-6 h-[80vh]">
             {/* Timeline / Calendar List */}
-            <div className="w-full md:w-1/4 bg-white p-4 rounded-3xl shadow-lg overflow-y-auto">
-                <h3 className="text-xl font-bold mb-4 text-gray-800">📸 Recuerdos</h3>
+            <div className="w-full md:w-1/4 bg-white dark:bg-slate-800 p-4 rounded-3xl shadow-lg overflow-y-auto border border-gray-100 dark:border-slate-700">
+                <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">📸 Recuerdos</h3>
                 <div className="space-y-4">
                     {pastQuedadas.map(q => (
                         <div
                             key={q.id_quedada}
                             onClick={() => handleSelectQuedada(q)}
-                            className={`p-4 rounded-xl cursor-pointer border transition-all ${selectedQuedada?.id_quedada === q.id_quedada ? 'border-indigo-500 bg-indigo-50 shadow-md' : 'border-gray-100 hover:bg-gray-50'}`}
+                            className={`p-4 rounded-xl cursor-pointer border transition-all ${selectedQuedada?.id_quedada === q.id_quedada ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 shadow-md' : 'border-gray-100 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/50'}`}
                         >
-                            <div className="font-bold text-gray-900">{q.nombre}</div>
-                            <div className="text-sm text-gray-500">{new Date(q.fecha_inicio).toLocaleDateString()}</div>
+                            <div className="font-bold text-gray-900 dark:text-white">{q.nombre}</div>
+                            <div className="text-sm text-gray-500 dark:text-slate-400">{new Date(q.fecha_inicio).toLocaleDateString()}</div>
                         </div>
                     ))}
                     {pastQuedadas.length === 0 && <p className="text-gray-400">Aún no hay eventos pasados.</p>}
@@ -308,24 +308,24 @@ export default function GroupCalendar({ groupId, userId, initialSelectedId }) {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 bg-white p-6 rounded-3xl shadow-lg flex flex-col md:overflow-hidden">
+            <div className="flex-1 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-lg flex flex-col md:overflow-hidden border border-gray-100 dark:border-slate-700">
                 {selectedQuedada ? (
                     <div className="flex flex-col h-full">
-                        <h2 className="text-2xl font-black mb-1">{selectedQuedada.nombre}</h2>
-                        <p className="text-gray-500 mb-6">{parseProposal(selectedQuedada.descripcion).description}</p>
+                        <h2 className="text-2xl font-black mb-1 text-gray-900 dark:text-white">{selectedQuedada.nombre}</h2>
+                        <p className="text-gray-500 dark:text-slate-400 mb-6">{parseProposal(selectedQuedada.descripcion).description}</p>
 
                         <div className="flex-1 overflow-y-auto pr-2 space-y-8">
 
                             {/* Photos Section */}
                             <section>
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                    <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
                                         📸 Galería (Top 10)
                                     </h3>
                                     {(userRole === 'Organizador' || userRole === 'Fotógrafo') && (
                                         <button
                                             onClick={() => setManageMode(!manageMode)}
-                                            className={`text-xs font-bold px-3 py-1 rounded-full border transition-all ${manageMode ? 'bg-black text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                                            className={`text-xs font-bold px-3 py-1 rounded-full border transition-all ${manageMode ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white' : 'text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700'}`}
                                         >
                                             {manageMode ? '✅ Salir Gestión' : '⚙️ Gestionar Fotos'}
                                         </button>
@@ -374,16 +374,16 @@ export default function GroupCalendar({ groupId, userId, initialSelectedId }) {
                                 </div>
                             </section>
 
-                            <hr className="border-gray-100" />
+                            <hr className="border-gray-100 dark:border-slate-700" />
 
                             {/* Comments Section */}
                             <section>
-                                <h3 className="font-bold text-gray-800 mb-3">💬 Comentarios</h3>
+                                <h3 className="font-bold text-gray-800 dark:text-white mb-3">💬 Comentarios</h3>
                                 <div className="space-y-3 mb-4">
                                     {comments.map(c => (
-                                        <div key={c.id} className="bg-gray-50 p-3 rounded-xl rounded-tl-none border border-gray-100">
-                                            <div className="text-xs text-indigo-600 font-bold mb-1">{c.displayName}</div>
-                                            <p className="text-sm text-gray-900 font-medium">{c.texto}</p>
+                                        <div key={c.id} className="bg-gray-50 dark:bg-slate-900/50 p-3 rounded-xl rounded-tl-none border border-gray-100 dark:border-slate-700">
+                                            <div className="text-xs text-indigo-600 dark:text-indigo-400 font-bold mb-1">{c.displayName}</div>
+                                            <p className="text-sm text-gray-900 dark:text-slate-200 font-medium">{c.texto}</p>
                                         </div>
                                     ))}
                                     {comments.length === 0 && <p className="text-sm text-gray-400 italic">Sé el primero en comentar qué tal fue...</p>}
@@ -394,11 +394,11 @@ export default function GroupCalendar({ groupId, userId, initialSelectedId }) {
                                     <input
                                         type="text"
                                         placeholder="Escribe un recuerdo..."
-                                        className="flex-1 bg-gray-50 border border-gray-200 rounded-lg text-sm px-3 py-2 text-black font-medium focus:ring-2 focus:ring-indigo-500"
+                                        className="flex-1 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-lg text-sm px-3 py-2 text-black dark:text-white font-medium focus:ring-2 focus:ring-indigo-500"
                                         value={newComment}
                                         onChange={e => setNewComment(e.target.value)}
                                     />
-                                    <button type="submit" className="text-indigo-600 font-bold px-3 hover:bg-indigo-50 rounded-lg">Enviar</button>
+                                    <button type="submit" className="text-indigo-600 dark:text-indigo-400 font-bold px-3 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">Enviar</button>
                                 </form>
                             </section>
                         </div>

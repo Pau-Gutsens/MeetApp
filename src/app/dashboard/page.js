@@ -272,23 +272,23 @@ export default function Dashboard() {
     if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl text-indigo-600 uppercase tracking-tighter animate-pulse">Cargando...</div>
 
     return (
-        <div className="min-h-screen bg-gray-50 relative font-sans text-gray-900 pb-32">
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-950 relative font-sans text-gray-900 dark:text-slate-100 pb-32 transition-colors duration-300">
 
-            <div className="fixed top-0 w-full bg-white/80 backdrop-blur-md z-40 border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+            <div className="fixed top-0 w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-40 border-b border-gray-100 dark:border-slate-800 px-6 py-4 flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <Link href="/profile" className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors" title="Mi Perfil">
-                        <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <Link href="/profile" className="p-2 bg-gray-100 dark:bg-slate-800 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors" title="Mi Perfil">
+                        <svg className="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                     </Link>
-                    <Link href="/settings" className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors" title="Ajustes">
-                        <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <Link href="/settings" className="p-2 bg-gray-100 dark:bg-slate-800 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors" title="Ajustes">
+                        <svg className="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                     </Link>
                 </div>
-                <h1 className="text-lg font-black uppercase tracking-widest text-indigo-900">MeetApp</h1>
+                <h1 className="text-lg font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">MeetApp</h1>
             </div>
 
             <div className="max-w-4xl mx-auto pt-24 px-6">
@@ -297,13 +297,13 @@ export default function Dashboard() {
                 {pendingRequests.length > 0 && viewMode === 'main' && (
                     <div className="mb-10 animate-slide-down">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-black uppercase tracking-tight text-gray-800 flex items-center gap-2">
+                            <h2 className="text-xl font-black uppercase tracking-tight text-gray-800 dark:text-slate-200 flex items-center gap-2">
                                 📬 Solicitudes
                                 <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">{pendingRequests.length}</span>
                             </h2>
                             <button
                                 onClick={() => fetchGroups(user.id)}
-                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 uppercase"
+                                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 uppercase"
                             >
                                 Actualizar
                             </button>
@@ -311,21 +311,21 @@ export default function Dashboard() {
 
                         <div className="grid gap-4">
                             {pendingRequests.map(req => (
-                                <div key={req.id} className="bg-white p-5 rounded-2xl shadow-lg border border-indigo-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <div key={req.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-lg border border-indigo-100 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4">
                                     <div className="flex items-center gap-4 w-full">
                                         <div className="h-12 w-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md">
                                             {req.Usuario?.email?.[0].toUpperCase() || '?'}
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-gray-900">{req.Usuario?.email}</p>
-                                            <p className="text-xs text-gray-500">quiere unirse a <span className="text-indigo-600 font-black uppercase">{req.Grupo?.nombre}</span></p>
+                                            <p className="text-sm font-bold text-gray-900 dark:text-white">{req.Usuario?.email}</p>
+                                            <p className="text-xs text-gray-500 dark:text-slate-400">quiere unirse a <span className="text-indigo-600 dark:text-indigo-400 font-black uppercase">{req.Grupo?.nombre}</span></p>
                                         </div>
                                     </div>
 
                                     <div className="flex gap-2 w-full sm:w-auto">
                                         <button
                                             onClick={() => handleRejectRequest(req.id)}
-                                            className="flex-1 sm:flex-none px-4 py-2 border border-red-200 text-red-500 font-bold rounded-xl text-sm hover:bg-red-50 transition-colors uppercase"
+                                            className="flex-1 sm:flex-none px-4 py-2 border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 font-bold rounded-xl text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors uppercase"
                                         >
                                             Rechazar
                                         </button>
@@ -348,27 +348,27 @@ export default function Dashboard() {
                     <div className="animate-fade-in">
                         {viewMode === 'main' && (
                             <div className="text-center py-20">
-                                <h2 className="text-3xl font-black text-gray-300 uppercase mb-4">Nada por aquí</h2>
-                                <p className="text-gray-400 mb-8">Únete a un grupo o crea uno nuevo para empezar.</p>
+                                <h2 className="text-3xl font-black text-gray-300 dark:text-slate-700 uppercase mb-4">Nada por aquí</h2>
+                                <p className="text-gray-400 dark:text-slate-500 mb-8">Únete a un grupo o crea uno nuevo para empezar.</p>
                                 <div className="space-y-3 max-w-xs mx-auto">
                                     <button onClick={() => setViewMode('create')} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:scale-105 transition-transform">CREAR GRUPO</button>
-                                    <button onClick={() => setViewMode('join')} className="w-full py-4 bg-white text-indigo-600 border border-indigo-100 font-black rounded-2xl shadow-sm hover:bg-indigo-50 transition-colors">UNIRSE CON CÓDIGO</button>
+                                    <button onClick={() => setViewMode('join')} className="w-full py-4 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-slate-700 font-black rounded-2xl shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors">UNIRSE CON CÓDIGO</button>
                                 </div>
                             </div>
                         )}
 
                         {viewMode === 'create' && (
-                            <div className="bg-white p-6 rounded-3xl shadow-2xl border-t-8 border-indigo-500 max-w-lg mx-auto">
-                                <h3 className="text-xl font-black mb-6 uppercase text-gray-800">Crear nuevo grupo</h3>
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-2xl border-t-8 border-indigo-500 max-w-lg mx-auto">
+                                <h3 className="text-xl font-black mb-6 uppercase text-gray-800 dark:text-white">Crear nuevo grupo</h3>
                                 <input
-                                    className="w-full bg-gray-50 p-4 rounded-xl mb-4 font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    className="w-full bg-gray-50 dark:bg-slate-900 p-4 rounded-xl mb-4 font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all border-none"
                                     placeholder="Nombre del Grupo"
                                     autoFocus
                                     value={inputName}
                                     onChange={e => setInputName(e.target.value)}
                                 />
                                 <input
-                                    className="w-full bg-gray-50 p-4 rounded-xl mb-6 font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    className="w-full bg-gray-50 dark:bg-slate-900 p-4 rounded-xl mb-6 font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all border-none"
                                     placeholder="Tu apodo (Opcional)"
                                     onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                                     value={apodo}
@@ -376,17 +376,17 @@ export default function Dashboard() {
                                 />
                                 {msg && <p className="text-red-500 text-xs font-bold mb-4">{msg}</p>}
                                 <div className="flex gap-4">
-                                    <button onClick={() => { setViewMode('main'); setMsg('') }} className="flex-1 py-3 text-gray-400 font-bold hover:text-gray-600">CANCELAR</button>
+                                    <button onClick={() => { setViewMode('main'); setMsg('') }} className="flex-1 py-3 text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 font-bold">CANCELAR</button>
                                     <button onClick={handleCreate} className="flex-1 py-3 bg-indigo-600 text-white font-black rounded-xl hover:bg-indigo-700 shadow-lg">CREAR</button>
                                 </div>
                             </div>
                         )}
 
                         {viewMode === 'join' && (
-                            <div className="bg-white p-6 rounded-3xl shadow-2xl border-t-8 border-indigo-500 max-w-lg mx-auto">
-                                <h3 className="text-xl font-black mb-6 uppercase text-gray-800">Unirse a un grupo</h3>
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-2xl border-t-8 border-indigo-500 max-w-lg mx-auto">
+                                <h3 className="text-xl font-black mb-6 uppercase text-gray-800 dark:text-white">Unirse a un grupo</h3>
                                 <input
-                                    className="w-full bg-gray-50 p-4 rounded-xl mb-6 text-center text-2xl font-black uppercase tracking-widest text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    className="w-full bg-gray-50 dark:bg-slate-900 p-4 rounded-xl mb-6 text-center text-2xl font-black uppercase tracking-widest text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all border-none"
                                     placeholder="AABB12"
                                     maxLength={6}
                                     autoFocus
@@ -396,7 +396,7 @@ export default function Dashboard() {
                                 />
                                 {msg && <p className={`text-xs font-bold mb-4 ${msg.includes('enviada') ? 'text-green-600' : 'text-red-500'}`}>{msg}</p>}
                                 <div className="flex gap-4">
-                                    <button onClick={() => { setViewMode('main'); setMsg('') }} className="flex-1 py-3 text-gray-400 font-bold hover:text-gray-600">CANCELAR</button>
+                                    <button onClick={() => { setViewMode('main'); setMsg('') }} className="flex-1 py-3 text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 font-bold">CANCELAR</button>
                                     <button onClick={handleJoinByCode} className="flex-1 py-3 bg-indigo-600 text-white font-black rounded-xl hover:bg-indigo-700 shadow-lg">UNIRSE</button>
                                 </div>
                             </div>
@@ -405,15 +405,15 @@ export default function Dashboard() {
                 ) : (
                     /* LIST OF GROUPS */
                     <div className="animate-fade-in space-y-4">
-                        <h2 className="text-2xl font-black text-indigo-900 uppercase tracking-tighter mb-6">Mis Grupos</h2>
+                        <h2 className="text-2xl font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-tighter mb-6">Mis Grupos</h2>
                         {groups.map(g => (
-                            <div key={g.id_grupo} className="bg-white p-6 rounded-2xl shadow-md border-2 border-indigo-50 hover:border-indigo-500 hover:shadow-xl transition-all flex justify-between items-center transform hover:-translate-y-1 group relative">
+                            <div key={g.id_grupo} className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-md border-2 border-indigo-50 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-xl transition-all flex justify-between items-center transform hover:-translate-y-1 group relative">
                                 <Link href={`/groups?id=${g.id_grupo}`} className="absolute inset-0 z-0"></Link>
 
-                                <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight relative z-10 pointer-events-none">{g.nombre}</h3>
+                                <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tight relative z-10 pointer-events-none">{g.nombre}</h3>
 
                                 <div className="flex items-center gap-3 relative z-10">
-                                    <span className="bg-indigo-50 text-indigo-600 font-bold px-3 py-1 rounded-lg text-xs tracking-widest">{g.codigo_invitacion?.toUpperCase()}</span>
+                                    <span className="bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 font-bold px-3 py-1 rounded-lg text-xs tracking-widest border border-indigo-100 dark:border-indigo-900/50">{g.codigo_invitacion?.toUpperCase()}</span>
 
                                     <button
                                         onClick={(e) => {
@@ -421,7 +421,7 @@ export default function Dashboard() {
                                             e.preventDefault();
                                             handleLeaveGroup(g.id_grupo, g.nombre);
                                         }}
-                                        className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                        className="w-8 h-8 flex items-center justify-center bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 rounded-full hover:bg-red-500 hover:text-white transition-all shadow-sm"
                                         title="Salir y borrar grupo de mi lista"
                                     >
                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -440,11 +440,11 @@ export default function Dashboard() {
                 <div className="fixed bottom-8 right-8 flex flex-col items-end gap-4 z-50">
                     {showCreateJoin && (
                         <div className="flex flex-col gap-2 mb-2 animate-slide-up">
-                            <button onClick={() => { setViewMode('join'); setShowCreateJoin(false) }} className="bg-white text-indigo-600 px-6 py-3 rounded-full font-black shadow-lg hover:bg-gray-50 uppercase text-sm border border-indigo-100">Unirse</button>
+                            <button onClick={() => { setViewMode('join'); setShowCreateJoin(false) }} className="bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-full font-black shadow-lg hover:bg-gray-50 dark:hover:bg-slate-700 uppercase text-sm border border-indigo-100 dark:border-slate-700">Unirse</button>
                             <button onClick={() => { setViewMode('create'); setShowCreateJoin(false) }} className="bg-indigo-600 text-white px-6 py-3 rounded-full font-black shadow-lg hover:bg-indigo-700 uppercase text-sm">Crear</button>
                         </div>
                     )}
-                    <button onClick={() => setShowCreateJoin(!showCreateJoin)} className="h-16 w-16 bg-black text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
+                    <button onClick={() => setShowCreateJoin(!showCreateJoin)} className="h-16 w-16 bg-black dark:bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
                         <svg className={`w-8 h-8 transition-transform duration-300 ${showCreateJoin ? 'rotate-45' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
                     </button>
                 </div>

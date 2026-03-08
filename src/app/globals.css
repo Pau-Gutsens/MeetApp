@@ -41,16 +41,16 @@ body {
 /* Calendar mobile adjustments */
 @media (max-width: 768px) {
   .mobile-calendar-wrap {
-    --cell-width: calc(75px * var(--grid-scale, 1));
-    --cell-height: calc(55px * var(--grid-scale, 1));
+    --cell-width: calc(60px * var(--grid-scale, 1));
+    --cell-height: calc(45px * var(--grid-scale, 1));
   }
 }
 
 /* Extra small landscape */
 @media (max-width: 900px) and (orientation: landscape) {
   .mobile-calendar-wrap {
-    --cell-width: calc(65px * var(--grid-scale, 1));
-    --cell-height: calc(40px * var(--grid-scale, 1));
+    --cell-width: calc(50px * var(--grid-scale, 1));
+    --cell-height: calc(35px * var(--grid-scale, 1));
   }
 }
 

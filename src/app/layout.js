@@ -26,11 +26,23 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Providers>
-          {children}
-        </Providers>
+        <div id="rotate-overlay">
+          <svg className="w-20 h-20 mb-6 text-indigo-400 rotate-90 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+          </svg>
+          <h1 className="text-2xl font-black mb-2 tracking-tight">Gira tu teléfono</h1>
+          <p className="text-gray-300 max-w-sm text-sm">
+            MeetApp está diseñada para usarse exclusivamente en modo vertical.
+            Por favor, pon tu dispositivo en posición vertical para continuar.
+          </p>
+        </div>
+        <div id="app-content" className="min-h-screen">
+          <Providers>
+            {children}
+          </Providers>
+        </div>
       </body>
     </html>
   );

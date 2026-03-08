@@ -46,12 +46,34 @@ body {
   }
 }
 
-/* Extra small landscape */
+/* Strict Portrait Enforcer for Mobile Landscape */
 @media (max-width: 900px) and (orientation: landscape) {
-  .mobile-calendar-wrap {
-    --cell-width: calc(50px * var(--grid-scale, 1));
-    --cell-height: calc(35px * var(--grid-scale, 1));
+  #app-content {
+    display: none !important;
   }
+
+  #rotate-overlay {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #111827;
+    /* Tailwind gray-900 */
+    color: white;
+    z-index: 99999;
+    padding: 2rem;
+    text-align: center;
+  }
+}
+
+/* Hidden by default on portrait or desktop */
+#rotate-overlay {
+  display: none;
 }
 
 @media (min-width: 769px) {

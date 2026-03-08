@@ -104,6 +104,24 @@ export default function SettingsPage() {
                         <p className="text-center mt-2 text-xs font-mono text-gray-400">x{settings.gridSize}</p>
                     </div>
                 </div>
+
+                {/* Logout Button in Settings */}
+                <div className="mt-12 bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-red-100 dark:border-red-900/30 flex flex-col items-center">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Cuenta</h3>
+                    <p className="text-sm text-gray-500 mb-6 text-center">
+                        Cierra tu sesión en este dispositivo. Tendrás que volver a iniciar sesión la próxima vez.
+                    </p>
+                    <button
+                        onClick={async () => {
+                            const { supabase } = await import('@/lib/supabaseClient')
+                            await supabase.auth.signOut()
+                            router.push('/')
+                        }}
+                        className="w-full sm:w-auto bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-black px-8 py-3 rounded-xl hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors border border-red-200 dark:border-red-900/50"
+                    >
+                        Cerrar Sesión
+                    </button>
+                </div>
             </div>
         </div>
     )

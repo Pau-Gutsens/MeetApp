@@ -228,192 +228,215 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
                 ⏰ Mi Disponibilidad
             </h3>
 
-            {isMobile && !showMobileCalendar ? (
-                <div className="flex flex-col items-center gap-4 py-8">
-                    <p className="text-sm text-gray-500 text-center">Toca para abrir el panel y gira tu móvil para verlo cómodamente horizontal.</p>
-                    <button
-                        onClick={() => setShowMobileCalendar(true)}
-                        className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 w-full uppercase tracking-wide"
-                    >
-                        📅 Abrir Modificador de Horas
-                    </button>
-                </div>
-            ) : (
-                <>
-                    <p className="text-sm text-gray-500 mb-6">Marca las horas en las que puedes quedar. Los colores oscuros muestran dónde coincidís más.</p>
+            <div className={isMobile && !showMobileCalendar ? 'flex flex-col items-center gap-4 py-8' : 'hidden'}>
+                <p className="text-sm text-gray-500 text-center">Toca para abrir el panel y gira tu móvil para verlo cómodamente horizontal.</p>
+                <button
+                    onClick={() => setShowMobileCalendar(true)}
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 w-full uppercase tracking-wide"
+                >
+                    📅 Abrir Modificador de Horas
+                </button>
+            </div>
 
-                    {/* Legend */}
-                    <div className="mb-6 flex flex-wrap items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest w-full md:w-auto text-center md:text-left">Ocupación:</span>
-                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 md:gap-6 mt-2 md:mt-0">
-                            <div className="flex items-center gap-2">
-                                <div className="h-4 w-4 rounded-md bg-[#F9FAFB] border border-gray-200"></div>
-                                <span className="text-[10px] font-bold text-gray-500">Nadie</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="h-4 w-4 rounded-md bg-[#dcfce7] border border-green-100"></div>
-                                <span className="text-[10px] font-bold text-gray-500">Pocos</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="h-4 w-4 rounded-md bg-[#86efac]"></div>
-                                <span className="text-[10px] font-bold text-gray-500">Mitad</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="h-4 w-4 rounded-md bg-[#22c55e]"></div>
-                                <span className="text-[10px] font-bold text-gray-500">Mayoría</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="h-4 w-4 rounded-md bg-[#15803d]"></div>
-                                <span className="text-[10px] font-bold text-gray-500">Todos</span>
-                            </div>
+            <div className={isMobile && !showMobileCalendar ? 'hidden' : 'block'}>
+                <p className="text-sm text-gray-500 mb-6">Marca las horas en las que puedes quedar. Los colores oscuros muestran dónde coincidís más.</p>
+
+                {/* Legend */}
+                <div className="mb-6 flex flex-wrap items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest w-full md:w-auto text-center md:text-left">Ocupación:</span>
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 md:gap-6 mt-2 md:mt-0">
+                        <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 rounded-md bg-[#F9FAFB] border border-gray-200"></div>
+                            <span className="text-[10px] font-bold text-gray-500">Nadie</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 rounded-md bg-[#dcfce7] border border-green-100"></div>
+                            <span className="text-[10px] font-bold text-gray-500">Pocos</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 rounded-md bg-[#86efac]"></div>
+                            <span className="text-[10px] font-bold text-gray-500">Mitad</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 rounded-md bg-[#22c55e]"></div>
+                            <span className="text-[10px] font-bold text-gray-500">Mayoría</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 rounded-md bg-[#15803d]"></div>
+                            <span className="text-[10px] font-bold text-gray-500">Todos</span>
                         </div>
                     </div>
+                </div>
 
-                    <div className="overflow-x-auto pb-4 custom-scrollbar mobile-calendar-wrap" style={{ "--grid-scale": gridSize }}>
-                        <div
-                            className="grid gap-3 w-full min-w-max"
-                            style={{
-                                gridTemplateColumns: isMobile ? `auto repeat(${hours.length}, minmax(var(--cell-height), 1fr))` : `auto repeat(${days.length}, minmax(var(--cell-width), 1fr))`,
-                                gridTemplateRows: isMobile ? `auto repeat(${days.length}, minmax(var(--cell-width), 1fr))` : 'auto',
-                                gridAutoFlow: isMobile ? 'column' : 'row'
-                            }}
-                        >
-                            {/* Header: Days */}
-                            <div />
-                            {days.map((d, dIdx) => {
-                                const maxOccDay = getMaxOccupancyForDay(d)
+                {/* Wrapper for conditional rotation */}
+                <div
+                    className={`pb-4 custom-scrollbar mobile-calendar-wrap transition-all duration-300 ${isMobile && showMobileCalendar
+                        ? 'fixed top-0 left-0 bg-white z-[100] w-[100vh] h-[100vw] overflow-y-auto px-6 pt-16'
+                        : 'overflow-x-auto relative'
+                        }`}
+                    style={{
+                        "--grid-scale": gridSize,
+                        ...(isMobile && showMobileCalendar ? {
+                            transformOrigin: 'top left',
+                            transform: 'rotate(90deg) translateY(-100%)',
+                            position: 'fixed',
+                            top: 0,
+                            left: 0
+                        } : {})
+                    }}
+                >
+                    {isMobile && showMobileCalendar && (
+                        <div className="absolute top-4 left-4 z-[110]">
+                            <button
+                                onClick={() => setShowMobileCalendar(false)}
+                                className="bg-red-100 text-red-600 px-4 py-2 rounded-xl font-bold shadow-sm hover:bg-red-200"
+                            >
+                                ✖ Cerrar
+                            </button>
+                        </div>
+                    )}
+
+                    <div
+                        className="grid gap-3 w-full min-w-max pb-12"
+                        style={{
+                            gridTemplateColumns: `auto repeat(${days.length}, minmax(var(--cell-width), 1fr))`
+                        }}
+                    >
+                        {/* Header: Days */}
+                        <div />
+                        {days.map((d, dIdx) => {
+                            const maxOccDay = getMaxOccupancyForDay(d)
+                            const totalParticipants = allParticipations.length || 1
+                            const allDaySelected = hours.every(h => myAvailability.includes(getSlotId(d, h)))
+
+                            return (
+                                <div key={d.toISOString()} className="flex flex-col items-center gap-1 min-w-[60px]">
+                                    <div className="text-xs font-black text-indigo-400 uppercase tracking-tighter">
+                                        {d.toLocaleDateString('es-ES', { weekday: 'short' })}
+                                    </div>
+                                    <div className="text-lg font-black text-gray-900">{d.getDate()}</div>
+                                    <button
+                                        onClick={() => toggleAllDay(d)}
+                                        title="Seleccionar/Deseleccionar todo el día"
+                                        className="p-2 rounded-xl transition-all border border-gray-100 shadow-sm hover:scale-105 flex items-center justify-center gap-1.5"
+                                        style={{
+                                            backgroundColor: getColorForOccupancy(maxOccDay, totalParticipants),
+                                            minWidth: '44px'
+                                        }}
+                                    >
+                                        <div className={`h-4 w-4 ${allDaySelected ? 'text-green-600' : 'text-gray-300'}`}>
+                                            <svg fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        {maxOccDay > 0 && (
+                                            <span className={`text-xs font-black ${maxOccDay === totalParticipants ? 'text-white' : 'text-green-900'}`}>
+                                                {maxOccDay}
+                                            </span>
+                                        )}
+                                    </button>
+                                </div>
+                            )
+                        })}
+
+                        {/* Rows: Hours */}
+                        {
+                            hours.map(h => {
+                                const allSelected = days.every(d => myAvailability.includes(getSlotId(d, h)))
+                                const maxOccHour = getMaxOccupancyForHour(h)
                                 const totalParticipants = allParticipations.length || 1
-                                const allDaySelected = hours.every(h => myAvailability.includes(getSlotId(d, h)))
 
                                 return (
-                                    <div key={d.toISOString()} className={`flex items-center gap-1 min-w-[60px] ${isMobile ? 'flex-row justify-end pr-2 w-[90px] h-full' : 'flex-col'}`}>
-                                        <div className="text-xs font-black text-indigo-400 uppercase tracking-tighter">
-                                            {d.toLocaleDateString('es-ES', { weekday: 'short' })}
+                                    <div key={h} className="contents">
+                                        <div className="flex items-center gap-2 pr-4 min-w-[90px]">
+                                            <button
+                                                onClick={() => toggleAllHour(h)}
+                                                title="Seleccionar/Deseleccionar toda la hora"
+                                                className="p-1.5 rounded-xl transition-all border border-gray-100 shadow-sm hover:scale-105 flex items-center justify-center gap-1"
+                                                style={{
+                                                    backgroundColor: getColorForOccupancy(maxOccHour, totalParticipants),
+                                                    minWidth: '38px'
+                                                }}
+                                            >
+                                                <div className={`h-3.5 w-3.5 ${allSelected ? 'text-green-600' : 'text-gray-300'}`}>
+                                                    <svg fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                {maxOccHour > 0 && (
+                                                    <span className={`text-[10px] font-black ${maxOccHour === totalParticipants ? 'text-white' : 'text-green-900'}`}>
+                                                        {maxOccHour}
+                                                    </span>
+                                                )}
+                                            </button>
+                                            <div className="text-sm font-black text-gray-400">{h}:00</div>
                                         </div>
-                                        <div className="text-lg font-black text-gray-900">{d.getDate()}</div>
-                                        <button
-                                            onClick={() => toggleAllDay(d)}
-                                            title="Seleccionar/Deseleccionar todo el día"
-                                            className="p-2 rounded-xl transition-all border border-gray-100 shadow-sm hover:scale-105 flex items-center justify-center gap-1.5"
-                                            style={{
-                                                backgroundColor: getColorForOccupancy(maxOccDay, totalParticipants),
-                                                minWidth: '44px'
-                                            }}
-                                        >
-                                            <div className={`h-4 w-4 ${allDaySelected ? 'text-green-600' : 'text-gray-300'}`}>
-                                                <svg fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                </svg>
-                                            </div>
-                                            {maxOccDay > 0 && (
-                                                <span className={`text-xs font-black ${maxOccDay === totalParticipants ? 'text-white' : 'text-green-900'}`}>
-                                                    {maxOccDay}
-                                                </span>
-                                            )}
-                                        </button>
-                                    </div>
-                                )
-                            })}
+                                        {days.map((d, dIdx) => {
+                                            const hIdx = hours.indexOf(h)
+                                            const slot = getSlotId(d, h)
 
-                            {/* Rows: Hours */}
-                            {
-                                hours.map(h => {
-                                    const allSelected = days.every(d => myAvailability.includes(getSlotId(d, h)))
-                                    const maxOccHour = getMaxOccupancyForHour(h)
-                                    const totalParticipants = allParticipations.length || 1
+                                            // Check if this slot is in the current drag range
+                                            let isInDragRange = false
+                                            if (isDragging && dragStart && dragEnd) {
+                                                const minD = Math.min(dragStart.dayIdx, dragEnd.dayIdx)
+                                                const maxD = Math.max(dragStart.dayIdx, dragEnd.dayIdx)
+                                                const minH = Math.min(dragStart.hourIdx, dragEnd.hourIdx)
+                                                const maxH = Math.max(dragStart.hourIdx, dragEnd.hourIdx)
 
-                                    return (
-                                        <div key={h} className="contents">
-                                            <div className={`flex items-center gap-1 ${isMobile ? 'flex-col justify-end pb-2' : 'pr-4 min-w-[90px]'}`}>
-                                                <button
-                                                    onClick={() => toggleAllHour(h)}
-                                                    title="Seleccionar/Deseleccionar toda la hora"
-                                                    className="p-1.5 rounded-xl transition-all border border-gray-100 shadow-sm hover:scale-105 flex items-center justify-center gap-1"
+                                                isInDragRange = dIdx >= minD && dIdx <= maxD && hIdx >= minH && hIdx <= maxH
+                                            }
+
+                                            const isSelected = myAvailability.includes(slot)
+                                            const effectivelySelected = isInDragRange ? isSelecting : isSelected
+
+                                            const slotParticipants = allParticipations.filter(p => p.disponibilidad?.includes(slot))
+                                            const count = slotParticipants.length
+                                            const total = allParticipations.length || 1
+
+                                            // Get names for tooltip
+                                            const names = slotParticipants.map(p => p.displayName).join(', ')
+
+                                            return (
+                                                <div
+                                                    key={slot}
+                                                    onMouseDown={() => handleMouseDown(dIdx, hIdx, d, h)}
+                                                    onMouseEnter={() => handleMouseEnter(dIdx, hIdx)}
+                                                    className={`w-full rounded-2xl cursor-pointer transition-all border-2 select-none flex items-center justify-center ${effectivelySelected ? 'border-green-600 bg-green-50 ring-2 ring-green-100 shadow-sm z-10' : 'border-gray-100 hover:border-gray-200 shadow-sm'
+                                                        }`}
                                                     style={{
-                                                        backgroundColor: getColorForOccupancy(maxOccHour, totalParticipants),
-                                                        minWidth: '38px'
+                                                        backgroundColor: getColorForOccupancy(count, total),
+                                                        height: `var(--cell-height)`
                                                     }}
+                                                    title={count > 0 ? `Asisten: ${names}` : 'Nadie disponible'}
                                                 >
-                                                    <div className={`h-3.5 w-3.5 ${allSelected ? 'text-green-600' : 'text-gray-300'}`}>
-                                                        <svg fill="currentColor" viewBox="0 0 20 20">
-                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                        </svg>
-                                                    </div>
-                                                    {maxOccHour > 0 && (
-                                                        <span className={`text-[10px] font-black ${maxOccHour === totalParticipants ? 'text-white' : 'text-green-900'}`}>
-                                                            {maxOccHour}
+                                                    {count > 0 && (
+                                                        <span className={`text-xs font-black ${count === total ? 'text-white' : 'text-green-800'}`}>
+                                                            {count}
                                                         </span>
                                                     )}
-                                                </button>
-                                                <div className="text-sm font-black text-gray-400">{h}:00</div>
-                                            </div>
-                                            {days.map((d, dIdx) => {
-                                                const hIdx = hours.indexOf(h)
-                                                const slot = getSlotId(d, h)
-
-                                                // Check if this slot is in the current drag range
-                                                let isInDragRange = false
-                                                if (isDragging && dragStart && dragEnd) {
-                                                    const minD = Math.min(dragStart.dayIdx, dragEnd.dayIdx)
-                                                    const maxD = Math.max(dragStart.dayIdx, dragEnd.dayIdx)
-                                                    const minH = Math.min(dragStart.hourIdx, dragEnd.hourIdx)
-                                                    const maxH = Math.max(dragStart.hourIdx, dragEnd.hourIdx)
-
-                                                    isInDragRange = dIdx >= minD && dIdx <= maxD && hIdx >= minH && hIdx <= maxH
-                                                }
-
-                                                const isSelected = myAvailability.includes(slot)
-                                                const effectivelySelected = isInDragRange ? isSelecting : isSelected
-
-                                                const slotParticipants = allParticipations.filter(p => p.disponibilidad?.includes(slot))
-                                                const count = slotParticipants.length
-                                                const total = allParticipations.length || 1
-
-                                                // Get names for tooltip
-                                                const names = slotParticipants.map(p => p.displayName).join(', ')
-
-                                                return (
-                                                    <div
-                                                        key={slot}
-                                                        onMouseDown={() => handleMouseDown(dIdx, hIdx, d, h)}
-                                                        onMouseEnter={() => handleMouseEnter(dIdx, hIdx)}
-                                                        className={`w-full rounded-2xl cursor-pointer transition-all border-2 select-none flex items-center justify-center ${effectivelySelected ? 'border-green-600 bg-green-50 ring-2 ring-green-100 shadow-sm z-10' : 'border-gray-100 hover:border-gray-200 shadow-sm'
-                                                            }`}
-                                                        style={{
-                                                            backgroundColor: getColorForOccupancy(count, total),
-                                                            height: `var(--cell-height)`
-                                                        }}
-                                                        title={count > 0 ? `Asisten: ${names}` : 'Nadie disponible'}
-                                                    >
-                                                        {count > 0 && (
-                                                            <span className={`text-xs font-black ${count === total ? 'text-white' : 'text-green-800'}`}>
-                                                                {count}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    )
-                                })
-                            }
-                        </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                )
+                            })
+                        }
                     </div>
+                </div>
 
-                    <div className="mt-6 flex justify-between items-center bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
-                        <div className="text-xs font-bold text-indigo-700">
-                            {myAvailability.length} horas seleccionadas
-                        </div>
-                        <button
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-md hover:bg-indigo-700 disabled:opacity-50"
-                        >
-                            {saving ? 'Guardando...' : 'Guardar Horas'}
-                        </button>
+                <div className="mt-6 flex justify-between items-center bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                    <div className="text-xs font-bold text-indigo-700">
+                        {myAvailability.length} horas seleccionadas
                     </div>
-                </>
-            )}
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-md hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                        {saving ? 'Guardando...' : 'Guardar Horas'}
+                    </button>
+                </div>
+            </div>
         </div>
     )
 }

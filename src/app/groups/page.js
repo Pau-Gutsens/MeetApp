@@ -687,7 +687,14 @@ function GroupDetailsContent() {
                                                                                     </svg>
                                                                                 </button>
                                                                                 <button
-                                                                                    onClick={(e) => { e.stopPropagation(); handleJoin(q); }}
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        if (amIIn) {
+                                                                                            selectQuedada(q);
+                                                                                        } else {
+                                                                                            handleJoin(q);
+                                                                                        }
+                                                                                    }}
                                                                                     className={`flex-1 md:flex-none px-4 py-2 rounded-xl font-bold text-sm transition-all ${amIIn ? 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300' : (q.ParticipacionQuedada?.length >= q.aforo_max ? 'bg-gray-200 dark:bg-slate-800 text-gray-400 dark:text-slate-600 cursor-not-allowed' : 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700')}`}
                                                                                 >
                                                                                     {amIIn ? 'Gestionar Horas' : (q.ParticipacionQuedada?.length >= q.aforo_max ? 'Completo 🛑' : '¡Me apunto!')}
@@ -893,7 +900,7 @@ function GroupDetailsContent() {
                                                 <div className="text-3xl font-bold text-indigo-600">
                                                     {quedadaParticipants.length} / {selectedQuedada.aforo_max}
                                                 </div>
-                                                <div className="text-sm text-gray-500">Asistentes</div>
+                                                <div className="text-sm text-gray-500">Interesados</div>
                                             </div>
                                         </div>
                                     </div>
@@ -995,23 +1002,64 @@ function GroupDetailsContent() {
 
                                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-gray-100 dark:border-slate-700 shadow-sm relative overflow-hidden">
                                                 <h3 className="font-bold text-gray-900 dark:text-white mb-3">🙋 Quiénes van</h3>
-                                                <div className="space-y-2">
-                                                    {quedadaParticipants.map((p, i) => (
-                                                        <div key={i} className="flex items-center justify-between bg-gray-50 dark:bg-slate-900/50 p-2 rounded-xl border border-transparent dark:border-slate-700/50">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-800">
-                                                                    {(p.displayName || p.Usuario?.nombre || p.Usuario?.email || '?')[0].toUpperCase()}
+                                                <div className="space-y-4">
+                                                    {/* Han Votado */}
+                                                    <div>
+                                                        <h4 className="text-xs font-black text-green-600 dark:text-green-500 uppercase tracking-widest mb-2 flex items-center gap-1">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                                            Con Horas Guardadas
+                                                        </h4>
+                                                        <div className="space-y-2">
+                                                            {quedadaParticipants.filter(p => p.disponibilidad && p.disponibilidad.length > 0).map((p, i) => (
+                                                                <div key={i} className="flex items-center justify-between bg-green-50/30 dark:bg-green-900/10 p-2 rounded-xl border border-green-100 dark:border-green-900/30">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-xs font-bold text-green-800">
+                                                                            {(p.displayName || p.Usuario?.nombre || p.Usuario?.email || '?')[0].toUpperCase()}
+                                                                        </div>
+                                                                        <span className="text-sm font-medium text-gray-700 dark:text-slate-300">
+                                                                            {p.displayName || p.Usuario?.nombre || p.Usuario?.email || 'Anónimo'} {p.id_usuario === user.id ? '(Tú)' : ''}
+                                                                        </span>
+                                                                    </div>
+                                                                    <span className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-full font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                                                                        {p.rol || 'Asistente'}
+                                                                    </span>
                                                                 </div>
-                                                                <span className="text-sm font-medium text-gray-700">
-                                                                    {p.displayName || p.Usuario?.nombre || p.Usuario?.email || 'Anónimo'} {p.id_usuario === user.id ? '(Tú)' : ''}
-                                                                </span>
-                                                            </div>
-                                                            <span className="text-[10px] px-2 py-1 bg-white border border-gray-200 rounded-full font-bold text-gray-500 uppercase tracking-wider">
-                                                                {p.rol || 'Asistente'}
-                                                            </span>
+                                                            ))}
+                                                            {quedadaParticipants.filter(p => p.disponibilidad && p.disponibilidad.length > 0).length === 0 && (
+                                                                <span className="text-xs text-gray-400 italic pl-2">Nadie todavía...</span>
+                                                            )}
                                                         </div>
-                                                    ))}
-                                                    {quedadaParticipants.length === 0 && <span className="text-gray-400 italic">Nadie todavía...</span>}
+                                                    </div>
+
+                                                    {/* Faltan por Votar */}
+                                                    <div>
+                                                        <h4 className="text-xs font-black text-yellow-600 dark:text-yellow-500 uppercase tracking-widest mb-2 flex items-center gap-1 mt-4">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
+                                                            Falta confirmar horas
+                                                        </h4>
+                                                        <div className="space-y-2">
+                                                            {quedadaParticipants.filter(p => !p.disponibilidad || p.disponibilidad.length === 0).map((p, i) => (
+                                                                <div key={i} className="flex items-center justify-between bg-yellow-50/50 dark:bg-yellow-900/10 p-2 rounded-xl border border-yellow-100 dark:border-yellow-900/30">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="h-8 w-8 rounded-full bg-yellow-100 flex items-center justify-center text-xs font-bold text-yellow-800">
+                                                                            {(p.displayName || p.Usuario?.nombre || p.Usuario?.email || '?')[0].toUpperCase()}
+                                                                        </div>
+                                                                        <span className="text-sm font-medium text-gray-700 dark:text-slate-300">
+                                                                            {p.displayName || p.Usuario?.nombre || p.Usuario?.email || 'Anónimo'} {p.id_usuario === user.id ? '(Tú)' : ''}
+                                                                        </span>
+                                                                    </div>
+                                                                    <span className="text-[10px] px-2 py-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-full font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                                                                        {p.rol || 'Asistente'}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                            {quedadaParticipants.filter(p => !p.disponibilidad || p.disponibilidad.length === 0).length === 0 && (
+                                                                <span className="text-xs text-gray-400 italic pl-2">Todos han votado.</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {quedadaParticipants.length === 0 && <span className="text-gray-400 italic block mt-2">No hay nadie apuntado a este plan.</span>}
                                                 </div>
                                             </div>
                                         </div>
@@ -1051,13 +1099,22 @@ function GroupDetailsContent() {
                                         </>
                                     )}
 
-                                    <button
-                                        onClick={() => handleJoin(selectedQuedada)}
-                                        disabled={!isParticipant && quedadaParticipants.length >= selectedQuedada.aforo_max}
-                                        className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] ${isParticipant ? 'bg-red-50 text-red-600 hover:bg-red-100' : (quedadaParticipants.length >= selectedQuedada.aforo_max ? 'bg-gray-200 text-gray-400 cursor-not-allowed hover:scale-100' : 'bg-indigo-600 text-white hover:bg-indigo-700')}`}
-                                    >
-                                        {isParticipant ? '❌ Me bajo del plan' : (quedadaParticipants.length >= selectedQuedada.aforo_max ? 'Límite de aforo alcanzado 🛑' : '✅ ¡Me apunto!')}
-                                    </button>
+                                    {!isParticipant ? (
+                                        <button
+                                            onClick={() => handleJoin(selectedQuedada)}
+                                            disabled={quedadaParticipants.length >= selectedQuedada.aforo_max}
+                                            className={`w-full py-4 mt-6 rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] ${quedadaParticipants.length >= selectedQuedada.aforo_max ? 'bg-gray-200 text-gray-400 cursor-not-allowed hover:scale-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                                        >
+                                            {quedadaParticipants.length >= selectedQuedada.aforo_max ? 'Límite de aforo alcanzado 🛑' : '✅ ¡Me apunto!'}
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleJoin(selectedQuedada)}
+                                            className="w-full py-4 mt-6 rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                                        >
+                                            ❌ Me bajo del plan
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </>

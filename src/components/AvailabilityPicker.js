@@ -27,6 +27,18 @@ export default function AvailabilityPicker({ quedada, userId, onUpdate }) {
         return () => window.removeEventListener('resize', handleResize)
     }, [])
 
+    // Prevent body scroll when modal is open
+    useEffect(() => {
+        if (showMobileCalendar && isMobile) {
+            document.body.style.overflow = 'hidden'
+        } else {
+            document.body.style.overflow = ''
+        }
+        return () => {
+            document.body.style.overflow = ''
+        }
+    }, [showMobileCalendar, isMobile])
+
     // Generate slots
     const start = new Date(quedada.fecha_inicio)
     const end = new Date(quedada.fecha_fin || new Date(start.getTime() + 4 * 60 * 60 * 1000)) // Fallback 4h
